@@ -3,6 +3,7 @@ import {
   SubmissionNotFoundError,
   SubmissionValidationError,
 } from "@/domain/submission";
+import { evaluateLicensePolicy } from "@/domain/license-policy";
 import { getSubmissionRepository } from "@/server/app-store";
 import { authorizeEditor, hasSameOrigin } from "@/server/editor-auth";
 import { getRuntimeConfiguration } from "@/server/features";
@@ -61,6 +62,10 @@ export async function POST(request: Request, context: RefreshRouteContext) {
       access.actorId,
       result,
     );
+    const licensePolicy = evaluateLicensePolicy(
+      submission.licenseName,
+      githubEvidence,
+    );
 
     const message =
       githubEvidence.state === "observed"
@@ -70,7 +75,7 @@ export async function POST(request: Request, context: RefreshRouteContext) {
           : "GitHub 刷新失败，失败状态已保存，没有生成仓库快照。";
 
     return Response.json(
-      { githubEvidence, message },
+      { githubEvidence, licensePolicy, message },
       { headers: noStoreHeaders },
     );
   } catch (error) {

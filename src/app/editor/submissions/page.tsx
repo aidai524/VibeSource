@@ -25,7 +25,7 @@ export default function EditorSubmissionsPage() {
           </div>
           <div className="workflowHero__aside">
             <strong>不是生产身份系统</strong>
-            <p>凭证由服务器环境变量提供；GitHub 与 Demo 证据只在编辑明确点击后追加保存，不会自动批准。</p>
+            <p>凭证由服务器环境变量提供；GitHub 与 Demo 证据只在编辑明确点击后追加保存，许可证策略只生成复核建议，不会自动批准。</p>
           </div>
         </header>
 

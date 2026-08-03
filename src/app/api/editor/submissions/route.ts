@@ -1,6 +1,7 @@
 import { getSubmissionRepository } from "@/server/app-store";
 import { authorizeEditor } from "@/server/editor-auth";
 import { getRuntimeConfiguration } from "@/server/features";
+import { evaluateLicensePolicy } from "@/domain/license-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,11 +18,15 @@ export function GET(request: Request) {
 
   try {
     const repository = getSubmissionRepository(configuration);
-    const items = repository.listPending().map((submission) => ({
-      ...submission,
-      githubEvidence: repository.getGitHubEvidence(submission.id),
-      demoEvidence: repository.getDemoEvidence(submission.id),
-    }));
+    const items = repository.listPending().map((submission) => {
+      const githubEvidence = repository.getGitHubEvidence(submission.id);
+      return {
+        ...submission,
+        githubEvidence,
+        demoEvidence: repository.getDemoEvidence(submission.id),
+        licensePolicy: evaluateLicensePolicy(submission.licenseName, githubEvidence),
+      };
+    });
     return Response.json(
       {
         items,

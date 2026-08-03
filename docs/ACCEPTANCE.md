@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | A-001 | 新贡献者可以启动项目 | 在干净本地环境按 README 的真实命令完成安装、启动和测试；空状态首页与健康检查可访问 | `outputs/verification/A-001/`：干净副本记录、测试/构建结果、健康响应和桌面/移动截图 | Verified |
 | A-101 | 开发者能提交合格产品 | 提交公开仓库、体验入口、AI 说明和复用信息后，产生唯一待审核记录和明确状态 | `outputs/verification/M2-1/`：自动化、浏览器提交、API/数据库与重启证据 | Partially verified — local candidate only |
-| A-102 | 不合格产品不会误发布 | 私有/不可达仓库、缺少体验路径或必填信息时显示具体原因，公开目录中不存在该产品 | M2.1/M2.2a/M2.2b1：字段失败、GitHub 404、Demo 保留地址/重定向失败和无发布路径；资格政策待补 | Partially verified — local evidence only |
+| A-102 | 不合格产品不会误发布 | 私有/不可达仓库、缺少体验路径或必填信息时显示具体原因，公开目录中不存在该产品 | M2.1–M2.2b2a：字段/外部失败、许可证不一致理由和无发布路径；生产身份/批准待补 | Partially verified — local evidence and policy only |
 | A-103 | GitHub 数据可追溯 | 产品记录包含来源、抓取时间、成功/失败状态；模拟限流后旧数据标 stale 而非伪装成最新 | `outputs/verification/M2-2a/`：真实 200/404、限流 fixture、追加存储与 stale 断言 | Partially verified — local manual refresh |
 | A-104 | 发布保持人工控制 | 自动检查通过后仍为待审核；只有授权编辑确认才能发布，拒绝/覆盖含操作者、时间和理由 | `outputs/verification/M2-1/`：本地 token、服务端 actor、版本冲突、原子拒绝与浏览器审计；生产身份/批准待验证 | Partially verified — local reject only |
 | A-105 | 产品页支持体验、验证和复用判断 | 已发布页显示 Demo/部署入口、源码、AI 参与、技术栈、许可证、二开说明和每项验证状态 | 浏览器断言、截图 | Not run |
@@ -51,6 +51,13 @@
 - 浏览器刷新后 200 快照仍存在，整体状态仍为 `not_checked`，页面无横向溢出且无 console warning/error。确定性测试覆盖 timeout/TLS/network/DNS、混合安全/非安全地址、追加约束和 stale 保留。
 - A-102 与 A-111 仍为部分验证：这是本地手动时点证据，不证明持续可用、页面内容安全、部署成功、生产网络控制、公开产品或生产保留策略。
 
+## M2.2b2a 验证边界
+
+- 已实现范围：提交内置 SPDX 3.28.0 中 136 个未废弃 OSI-approved 标识及来源 SHA-256；服务端从开发者声明和当前 GitHub 成功快照派生 `not_ready / needs_manual_review / ready_for_manual_review`。
+- 当前证据：`npm run check` 通过，包括 9 个文件中的 89 个测试和 production build；显式来源校验脚本复算快照版本、SHA-256 和标识集合。
+- 隔离浏览器中，`vercel/next.js` 的 MIT 当前证据与 MIT 声明一致，策略在同一次刷新后显示“可进入人工复核”；`facebook/react` 的 301 失效关闭；`lodash/lodash` 的 `NOASSERTION` 与 Apache 声明显示具体人工复核理由。刷新后结果可重复派生，整体仍未核验。
+- 该切片不验证法律有效性、双许可证、依赖兼容、权利归属、公开产品或生产身份；“可进入人工复核”绝不等于批准或可发布。
+
 ## Release blockers
 
 以下任一情况存在时，不得声称 MVP 可上线：
@@ -63,7 +70,7 @@
 - 秘密进入源码、客户端包、日志或交付物。
 - 关键失败路径只显示成功假状态，或数据损坏后无法解释。
 - 把 M2.1 的本地 token 或 SQLite 文件宣称为生产身份或生产数据库。
-- 在 Demo、许可证政策和生产身份仍未完成时增加批准、发布或公开产品路径。
+- 在生产身份、许可证人工复核流程和批准审计仍未完成时增加批准、发布或公开产品路径。
 
 ## Guardrails
 

@@ -10,6 +10,10 @@ import type {
   GitHubEvidenceAttempt,
   GitHubEvidenceView,
 } from "@/domain/github-evidence";
+import type {
+  LicensePolicyReason,
+  LicensePolicyView,
+} from "@/domain/license-policy";
 
 type PendingSubmission = {
   readonly id: string;
@@ -27,6 +31,7 @@ type PendingSubmission = {
   readonly createdAt: string;
   readonly githubEvidence: GitHubEvidenceView;
   readonly demoEvidence: DemoEvidenceView;
+  readonly licensePolicy: LicensePolicyView;
 };
 
 type QueueResponse = {
@@ -173,6 +178,59 @@ function number(value: number): string {
   return new Intl.NumberFormat("zh-CN").format(value);
 }
 
+const licenseReasonLabels: Record<LicensePolicyReason, string> = {
+  github_evidence_missing: "尚未取得 GitHub 当前时点证据。",
+  github_evidence_not_current: "GitHub 最近刷新失败或证据已经过期，需要重新刷新。",
+  repository_not_public: "仓库当前证据不是公开状态。",
+  license_not_detected: "GitHub Licensee 未从 LICENSE 文件检测到已知许可证。",
+  spdx_id_missing: "GitHub 检测结果没有可用的 SPDX 标识。",
+  spdx_not_osi_approved: "检测到的 SPDX 标识不在当前 OSI-approved 政策快照中。",
+  developer_declaration_mismatch: "开发者声明与 GitHub 检测标识或名称不一致。",
+  machine_checks_passed: "当前机器条件一致，可以进入人工许可证复核。",
+};
+
+function LicensePolicyPanel({ policy }: { readonly policy: LicensePolicyView }) {
+  const stateLabel = {
+    not_ready: "证据未就绪",
+    needs_manual_review: "需要人工判断",
+    ready_for_manual_review: "可进入人工复核",
+  }[policy.state];
+  const stateClass = policy.state === "ready_for_manual_review"
+    ? "observed"
+    : policy.state === "not_ready" ? "not_checked" : "stale";
+
+  return (
+    <section className="githubEvidence" aria-label="许可证资格策略">
+      <div className="githubEvidence__header">
+        <div><p className="eyebrow">LICENSE / POLICY GATE</p><h3>许可证资格策略</h3></div>
+        <span className={`evidenceState evidenceState--${stateClass}`}>{stateLabel}</span>
+      </div>
+      <div className="githubEvidence__snapshot">
+        <p className="githubEvidence__provenance">
+          派生判断 · {policy.policyVersion}
+          {policy.basedOnGitHubObservedAt ? ` · 基于 ${formatDate(policy.basedOnGitHubObservedAt)}` : ""}
+        </p>
+        <dl className="githubEvidence__facts">
+          <div><dt>检测 SPDX</dt><dd>{policy.detectedSpdxId ?? "尚无"}</dd></div>
+          <div><dt>OSI 快照</dt><dd>{policy.osiApproved === null ? "尚不能判断" : policy.osiApproved ? "存在" : "不存在"}</dd></div>
+          <div><dt>声明一致</dt><dd>{policy.developerDeclarationMatches === null ? "尚不能判断" : policy.developerDeclarationMatches ? "一致" : "不一致"}</dd></div>
+          <div><dt>快照规模</dt><dd>{number(policy.source.approvedIdentifierCount)} 个标识</dd></div>
+        </dl>
+        <ul>
+          {policy.reasons.map((reason) => <li key={reason}>{licenseReasonLabels[reason]}</li>)}
+        </ul>
+        <p className="githubEvidence__rate">
+          <a href={policy.source.url} target="_blank" rel="noreferrer">SPDX {policy.source.licenseListVersion} 政策来源</a>
+          {` · 发布于 ${policy.source.releaseDate.slice(0, 10)}`}
+        </p>
+      </div>
+      <div className="githubEvidence__action">
+        <p>这里只检查当前证据、OSI-approved 快照和声明一致性；不判断双许可证、依赖许可证、权利归属或法律有效性，也不会批准发布。</p>
+      </div>
+    </section>
+  );
+}
+
 function EvidenceSnapshot({ attempt }: { readonly attempt: GitHubEvidenceAttempt }) {
   if (attempt.outcome !== "success") {
     return null;
@@ -218,12 +276,14 @@ function GitHubEvidencePanel({
   token,
   refreshAvailable,
   onStatus,
+  onLicensePolicy,
 }: {
   readonly submissionId: string;
   readonly initialEvidence: GitHubEvidenceView;
   readonly token: string;
   readonly refreshAvailable: boolean;
   readonly onStatus: (message: string) => void;
+  readonly onLicensePolicy: (policy: LicensePolicyView) => void;
 }) {
   const [evidence, setEvidence] = useState(initialEvidence);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -252,6 +312,7 @@ function GitHubEvidencePanel({
       );
       const payload = (await response.json()) as {
         readonly githubEvidence?: GitHubEvidenceView;
+        readonly licensePolicy?: LicensePolicyView;
         readonly message?: string;
       };
       if (!response.ok || !payload.githubEvidence) {
@@ -261,6 +322,7 @@ function GitHubEvidencePanel({
         return;
       }
       setEvidence(payload.githubEvidence);
+      if (payload.licensePolicy) onLicensePolicy(payload.licensePolicy);
       onStatus(payload.message ?? "GitHub 证据状态已更新。");
     } catch {
       const message = "无法连接审核服务，本次 GitHub 尝试没有保存。";
@@ -313,6 +375,7 @@ function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, demoEvi
   const [reason, setReason] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
   const [error, setError] = useState("");
+  const [licensePolicy, setLicensePolicy] = useState(submission.licensePolicy);
 
   async function reject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -366,7 +429,10 @@ function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, demoEvi
         token={token}
         refreshAvailable={githubEvidenceRefreshAvailable}
         onStatus={onStatus}
+        onLicensePolicy={setLicensePolicy}
       />
+
+      <LicensePolicyPanel policy={licensePolicy} />
 
       <DemoEvidencePanel
         submissionId={submission.id}

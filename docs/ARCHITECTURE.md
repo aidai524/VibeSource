@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: M1 remains verified. M2.1 candidate/rejection, M2.2a GitHub evidence and M2.2b1 Demo evidence are implemented; current checks cover 81 tests, production build, real external responses, persistence and browser rendering.
+> Status: M1 remains verified. M2.1 candidate/rejection, M2.2a GitHub evidence, M2.2b1 Demo evidence and M2.2b2a license triage are implemented; current checks cover 89 tests, production build, real external responses, persistence and browser rendering.
 
 ## Implemented M1 foundation
 
@@ -20,9 +20,10 @@
 - 提交整体资格仍固定为 `not_checked`。M2.2a 另行保存 GitHub 证据：只有本地编辑明确点击才向固定公开 API 发起一次请求，不读取 GitHub Token、不自动重试或后台轮询。
 - `github_evidence_attempts` 是 schema v2 追加表，保存来源、API 版本、观察时间、HTTP/限流、结构化仓库字段或明确错误；触发器禁止 update/delete。最近失败不覆盖最后成功快照，读取视图派生 `observed/stale/error/not_checked`。
 - `demo_evidence_attempts` 是 schema v3 追加表。Demo 适配器解析全部地址并拒绝任何非公网结果，请求固定到已验证 IP，保持原 Host/TLS 身份，不跟随重定向，收到响应头后销毁响应且不读取正文；最近失败同样不覆盖最后成功快照。
+- 许可证策略不新增可变状态：服务端从提交声明、当前 GitHub 成功快照和版本化 SPDX 3.28.0 OSI-approved 本地快照确定性派生三态建议。GitHub error/stale 不能通过；策略版本和来源随结果返回。
 - 本地审核需要服务端配置的 token 和由服务端持有的 actor 标识。唯一状态转换是 `pending_review -> rejected`，理由、预期版本和审计事件在同一事务内处理。
 - 当前不包含批准、发布、公开产品页、生产身份或许可证法律判断。
-- 当前实现通过 lint、typecheck、81 个 Vitest 测试和 production build；证据见 `outputs/verification/M2-1/`、`M2-2a/` 与 `M2-2b1/`。
+- 当前实现通过 lint、typecheck、89 个 Vitest 测试和 production build；证据见 `outputs/verification/M2-1/`、`M2-2a/`、`M2-2b1/` 与 `M2-2b2a/`。
 
 ## System context
 
@@ -72,6 +73,7 @@ M2.1 实现确定性提交和拒绝，M2.2a 实现编辑触发的 GitHub 时点�
 | Identity and access | 用户、开发者和编辑权限 | 登录身份、会话 | 授权上下文 | Security policy |
 | Product registry | 草稿、提交版本、必填资格和发布状态 | 开发者输入 | 可审核产品记录 | Application backend |
 | GitHub evidence adapter | 获取并标准化仓库与许可证检测证据 | 已归一化仓库 URL；当前无凭证 | 带时间戳快照或明确错误 | Verification policy |
+| License policy | 比较当前 GitHub 许可证检测、开发者声明和版本化 OSI-approved SPDX 快照 | 提交声明 + 当前 GitHub 快照 + 内置政策源 | 人工复核建议和具体理由 | Product/legal policy |
 | Editorial review | 人工核验、发布、拒绝、下架和理由记录 | 提交与证据 | 审核事件、公开版本 | Editor/admin |
 | Discovery and ranking | 分类、每日榜单和公式版本 | 已发布产品、有效互动 | 可复算的榜单快照 | Ranking policy |
 | Community | 点赞、评论、举报和治理 | 授权用户操作 | 互动记录与计数 | Community policy |
@@ -88,6 +90,7 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 | 批准、公开产品与生产审计 | 未来 VibeSource 生产业务数据库 | 管理端和公开页视图 | 必须持久化并有迁移、备份和恢复策略 | M2.1 没有此状态；删除优先归档 |
 | M2.2a GitHub 仓库元数据 | GitHub at observed time | 带 `observed_at`、API 版本和来源的本地快照 | SQLite v2 追加尝试；生产保留期待确认 | 最近失败显示 stale/error，不覆盖旧成功、不写伪造值 |
 | M2.2b1 Demo 可用性 | 受控请求在观察时点的响应头 | 带 `observed_at`、检查版本、HTTP、内容类型、固定 IP 与耗时的本地快照 | SQLite v3 追加尝试；生产保留策略待确认 | 最近失败显示 stale/error；一次成功不解释为持续可用 |
+| M2.2b2a 许可证策略 | 版本化代码与政策源 | 审核 API/UI 的确定性派生视图 | Git 中的策略版本、SPDX 标识快照和 SHA-256；不另存派生结果 | 政策升级必须新版本；不改写历史 GitHub 证据 |
 | AI 参与、技术栈和复用说明 | 开发者声明 + 编辑审核记录 | 公开产品版本 | 版本化保存 | 显示自述或核验状态 |
 | 点赞、评论和举报 | VibeSource 业务数据库 | 聚合计数 | 必须持久化 | 幂等、限频、软删除和申诉待设计 |
 | 每日榜单 | 公式版本 + 输入窗口的派生结果 | 公共缓存 | 保存每日快照 | 可按同版本重算；赞助金额不得进入自然榜 |

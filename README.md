@@ -1,6 +1,6 @@
 # VibeSource
 
-> Status: M2 in progress · M2.2b1 local Demo evidence slice implemented · Architecture profile: standard
+> Status: M2 in progress · M2.2b2a license triage policy implemented · Architecture profile: standard
 
 VibeSource 是一个专门发现和发布 AI 原生开源产品的平台。开发者可以获得首发与持续流量；用户可以直接体验产品、查看源码、判断 AI 的参与方式，并基于许可证与部署说明复用成果。
 
@@ -43,9 +43,9 @@ npm run build
 npm run start
 ```
 
-当前代码已通过 `npm run check`（81 项测试与 production build）。M2.1、M2.2a 与 M2.2b1 的证据分别见 `outputs/verification/M2-1/`、`outputs/verification/M2-2a/` 与 `outputs/verification/M2-2b1/`；生产托管环境仍未选择或验证。
+当前代码已通过 `npm run check`（89 项测试与 production build）。M2.1、M2.2a、M2.2b1 与 M2.2b2a 的证据位于 `outputs/verification/`；生产托管环境仍未选择或验证。
 
-默认运行仍是有意保留的失败关闭状态：`VIBESOURCE_SUBMISSION_MODE` 未显式设为 `local` 时，页面和 API 都不会接收提交。GitHub 与 Demo 时点证据各自还需要显式开启和人工点击；当前没有批准、发布、公开产品、许可证法律判断或生产身份能力。
+默认运行仍是有意保留的失败关闭状态：`VIBESOURCE_SUBMISSION_MODE` 未显式设为 `local` 时，页面和 API 都不会接收提交。GitHub 与 Demo 时点证据各自需要显式开启和人工点击；许可证策略只派生人工复核建议。当前没有批准、发布、公开产品、许可证法律判断或生产身份能力。
 
 ## M2 本地流程
 
@@ -68,6 +68,7 @@ VIBESOURCE_DEMO_EVIDENCE_MODE=live
 - 每次 GitHub 刷新只请求固定的公开仓库 API 一次，不读取 Token、不自动重试；保存来源、API 版本、观察时间、限流头、结构化快照或失败。
 - Demo 刷新解析全部地址，任一非公网地址即拒绝；一次 HTTPS GET 固定到已验证 IP，禁止重定向，收到响应头后停止且不读取正文。
 - 两类证据的最近刷新失败都会保留上一份成功快照并标为 `stale`；整体发布资格仍为 `not_checked`。
+- 许可证策略使用提交内置的 SPDX 3.28.0 OSI-approved 快照，比较当前 GitHub 检测与开发者声明；结果只表示证据是否足以进入人工复核。
 
 本地存储使用 Node 24 内置的同步 `node:sqlite` 文件数据库和显式迁移。该 API 当前为 Stability 1.2 / Release Candidate，M2.1 只允许单实例本地使用；它不是生产数据库或托管方案的选择。
 
@@ -80,7 +81,8 @@ VIBESOURCE_DEMO_EVIDENCE_MODE=live
 - `docs/ROADMAP.md` — 产品开发与首批流量供给路线
 - `docs/DECISIONS.md` — 已接受决策及其理由
 - `docs/WORKFLOW.md` — 主任务、探索、实施与审核协作方式
+- `docs/LICENSE_POLICY.md` — 许可证机器分流政策、来源版本和非法律边界
 
 ## Current milestone
 
-M2 — 候选/拒绝审计、GitHub 时点证据与 M2.2b1 Demo 响应头证据已完成本地验收。下一步是许可证资格政策与生产身份；在这些边界完成前仍不设计批准或发布路径。
+M2 — 候选/拒绝审计、GitHub/Demo 时点证据与 M2.2b2a 许可证机器分流已完成本地验收。下一步是生产身份与权限边界；在此完成前仍不设计批准或发布路径。

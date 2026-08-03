@@ -20,12 +20,12 @@ export default function SubmitPage() {
       <main className="workflowPage" id="top">
         <header className="workflowHero">
           <div>
-            <p className="eyebrow">SUBMIT / M2.2b1</p>
+            <p className="eyebrow">SUBMIT / M2.2b2a</p>
             <h1>提交候选产品，<br />先进入人工审核。</h1>
           </div>
           <div className="workflowHero__aside">
             <strong>当前验证边界</strong>
-            <p>提交时只校验字段和 URL 形状；GitHub 与 Demo 证据只会在本地编辑明确操作后请求。</p>
+            <p>提交时只校验字段和 URL 形状；GitHub 与 Demo 证据只会在本地编辑明确操作后请求，许可证策略随后由服务器派生。</p>
           </div>
         </header>
 
