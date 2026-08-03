@@ -6,6 +6,7 @@ import type {
   DemoEvidenceAttempt,
   DemoEvidenceView,
 } from "@/domain/demo-evidence";
+import type { EditorRole } from "@/domain/editor-identity";
 import type {
   GitHubEvidenceAttempt,
   GitHubEvidenceView,
@@ -39,6 +40,9 @@ type QueueResponse = {
   readonly capabilities?: {
     readonly githubEvidenceRefresh?: boolean;
     readonly demoEvidenceRefresh?: boolean;
+    readonly rejectSubmission?: boolean;
+    readonly licenseReview?: boolean;
+    readonly role?: EditorRole;
   };
   readonly message?: string;
 };
@@ -48,6 +52,7 @@ type ReviewCardProps = {
   readonly token: string;
   readonly githubEvidenceRefreshAvailable: boolean;
   readonly demoEvidenceRefreshAvailable: boolean;
+  readonly rejectAvailable: boolean;
   readonly onRejected: (id: string, message: string) => void;
   readonly onStatus: (message: string) => void;
 };
@@ -371,7 +376,7 @@ function GitHubEvidencePanel({
   );
 }
 
-function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, demoEvidenceRefreshAvailable, onRejected, onStatus }: ReviewCardProps) {
+function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, demoEvidenceRefreshAvailable, rejectAvailable, onRejected, onStatus }: ReviewCardProps) {
   const [reason, setReason] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
   const [error, setError] = useState("");
@@ -460,28 +465,34 @@ function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, demoEvi
 
       <p className="reviewCard__meta">提交于 {formatDate(submission.createdAt)} · {submission.id}</p>
 
-      <form className="rejectForm" onSubmit={reject}>
-        <label htmlFor={`reason-${submission.id}`}>拒绝理由 <span aria-hidden="true">*</span></label>
-        <textarea
-          id={`reason-${submission.id}`}
-          name="reason"
-          required
-          minLength={10}
-          maxLength={500}
-          rows={3}
-          value={reason}
-          onChange={(event) => setReason(event.currentTarget.value)}
-          aria-describedby={`reason-hint-${submission.id}${error ? ` reason-error-${submission.id}` : ""}`}
-          aria-invalid={error ? "true" : undefined}
-        />
-        <p className="formField__hint" id={`reason-hint-${submission.id}`}>
-          10–500 个字符；理由会与服务器端编辑身份、前后状态和时间一起保存。
-        </p>
-        {error ? <p className="formField__error" id={`reason-error-${submission.id}`}>{error}</p> : null}
-        <button className="button button--danger" type="submit" disabled={isRejecting}>
-          {isRejecting ? "拒绝并记录（处理中…）" : "拒绝并记录理由"}
-        </button>
-      </form>
+      {rejectAvailable ? (
+        <form className="rejectForm" onSubmit={reject}>
+          <label htmlFor={`reason-${submission.id}`}>拒绝理由 <span aria-hidden="true">*</span></label>
+          <textarea
+            id={`reason-${submission.id}`}
+            name="reason"
+            required
+            minLength={10}
+            maxLength={500}
+            rows={3}
+            value={reason}
+            onChange={(event) => setReason(event.currentTarget.value)}
+            aria-describedby={`reason-hint-${submission.id}${error ? ` reason-error-${submission.id}` : ""}`}
+            aria-invalid={error ? "true" : undefined}
+          />
+          <p className="formField__hint" id={`reason-hint-${submission.id}`}>
+            10–500 个字符；理由会与服务器端编辑身份、前后状态和时间一起保存。
+          </p>
+          {error ? <p className="formField__error" id={`reason-error-${submission.id}`}>{error}</p> : null}
+          <button className="button button--danger" type="submit" disabled={isRejecting}>
+            {isRejecting ? "拒绝并记录（处理中…）" : "拒绝并记录理由"}
+          </button>
+        </form>
+      ) : (
+        <div className="githubEvidence__action">
+          <p>当前角色没有拒绝候选产品的权限；页面不会显示无法执行的操作。</p>
+        </div>
+      )}
     </article>
   );
 }
@@ -494,6 +505,8 @@ export function ReviewConsole() {
   const [statusMessage, setStatusMessage] = useState("");
   const [githubEvidenceRefreshAvailable, setGitHubEvidenceRefreshAvailable] = useState(false);
   const [demoEvidenceRefreshAvailable, setDemoEvidenceRefreshAvailable] = useState(false);
+  const [rejectAvailable, setRejectAvailable] = useState(false);
+  const [editorRole, setEditorRole] = useState<EditorRole | null>(null);
 
   async function loadQueue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -521,6 +534,8 @@ export function ReviewConsole() {
       setDemoEvidenceRefreshAvailable(
         payload.capabilities?.demoEvidenceRefresh === true,
       );
+      setRejectAvailable(payload.capabilities?.rejectSubmission === true);
+      setEditorRole(payload.capabilities?.role ?? null);
       setStatusMessage(`审核队列已载入，共 ${payload.items.length} 条待审核记录。`);
     } catch {
       const message = "无法连接审核服务。";
@@ -562,7 +577,7 @@ export function ReviewConsole() {
         <section className="reviewQueue" aria-labelledby="review-queue-title">
           <div className="reviewQueue__heading">
             <div><p className="eyebrow">QUEUE / LIVE</p><h2 id="review-queue-title">待审核队列</h2></div>
-            <span>{items.length} 条</span>
+            <span>{editorRole ? `${editorRole} · ` : ""}{items.length} 条</span>
           </div>
           {items.length === 0 ? (
             <div className="emptyPanel"><h3>当前没有待审核记录</h3><p>这里不会用样例卡片填充空状态。</p></div>
@@ -574,6 +589,7 @@ export function ReviewConsole() {
                 token={token}
                 githubEvidenceRefreshAvailable={githubEvidenceRefreshAvailable}
                 demoEvidenceRefreshAvailable={demoEvidenceRefreshAvailable}
+                rejectAvailable={rejectAvailable}
                 onStatus={setStatusMessage}
                 onRejected={(id, message) => {
                   setItems((current) => current?.filter((item) => item.id !== id) ?? []);

@@ -20,7 +20,7 @@ const noStoreHeaders = { "cache-control": "no-store" } as const;
 
 export async function POST(request: Request, context: RefreshRouteContext) {
   const configuration = getRuntimeConfiguration();
-  const access = authorizeEditor(request, configuration);
+  const access = authorizeEditor(request, configuration, "evidence:refresh");
   if (!access.ok) {
     return Response.json(
       { message: access.message },

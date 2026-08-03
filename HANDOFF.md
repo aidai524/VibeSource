@@ -33,13 +33,15 @@ Last updated: 2026-08-03
 - M2.2b1 时点 `npm run check` 通过：8 个文件、81 个测试、lint、typecheck 和 production build。
 - M2.2b2a 已实现版本化许可证机器分流：内置 SPDX 3.28.0 的 136 个未废弃 OSI-approved 标识和来源 SHA-256，从当前 GitHub 证据与开发者声明派生三态人工复核建议。
 - `ready_for_manual_review` 只代表机器前置条件一致；GitHub stale/error、未检测、非快照标识或声明不一致都会显示具体原因，且永远不改变 `pending_review`。
-- 当前 `npm run check` 通过：9 个文件、89 个测试、lint、typecheck 和 production build；显式来源复验脚本与隔离浏览器一致/失败/不一致路径均通过。
+- M2.2b2b1 已实现编辑授权契约：`editor`、`license_reviewer`、`admin` 映射到四项最小权限，所有编辑 API 在服务端按操作授权，UI 同步移除无权操作。
+- `external-oidc` 是保留但不可用的生产目标；当前 local-token 只用于受控 QA，不是生产身份或会话。
+- 当前 `npm run check` 通过：10 个文件、95 个测试、lint、typecheck 和 production build；角色 UI 与直接 API 403 已通过隔离浏览器验证。
 
 ## In progress
 
 - 保持 M2.1 的本地证据包可复现，不把它升级解释为生产能力。
 - 设计生产许可证人工复核流程；本地机器分流已完成，但公开产品变更处理、生产刷新和保留策略仍待定。
-- 选择生产身份与权限方案；本地 token 不能升级解释为生产身份。
+- 按 D-020 在生产数据库与托管方案确定后实现外部 OIDC、数据库会话、角色分配和审计；本地 token 不能升级解释为生产身份。
 - 为 M2 选择生产数据库、迁移和托管方案；本地 `node:sqlite` 不关闭 D-015。
 - 确认 Newsletter、分析和后续支付方案。
 - 确认开放源码资格、AI 参与分类、榜单算法与反作弊政策。
@@ -67,7 +69,7 @@ Last updated: 2026-08-03
 - 自然榜单与付费推广分离；付费、发布、邮件发送和删除保持人工确认。
 - 前期至少一半精力用于寻找产品、采访开发者、内容分发和帮助首批项目获得真实用户。
 - M2.1 仅是本地失效关闭切片：同步 SQLite、绝对文件路径和本地 token 都不是生产承诺。
-- 在许可证政策和生产身份完成前，不增加批准或发布入口。
+- 在生产身份适配器、许可证人工流程和批准审计完成前，不增加批准或发布入口。
 - M2.2a 的未认证 GitHub API 受共享 IP 每小时限额约束；它只证明本地手动刷新，不关闭 D-014。
 - See `docs/DECISIONS.md`.
 
@@ -109,6 +111,9 @@ Last updated: 2026-08-03
 | M2.2b2a policy source | Complete | SPDX 3.28.0 snapshot: 136 OSI-approved non-deprecated identifiers; pinned SHA-256 reproduced by explicit verification script | 2026-08-03 |
 | M2.2b2a browser policy | Complete | Real MIT match became ready for manual review; redirect failed closed; NOASSERTION/mismatch showed reasons; reload reproduced results | 2026-08-03 |
 | M2.2b2a evidence package | Complete | `outputs/verification/M2-2b2a/README.md` records policy, checks, browser evidence and non-legal boundaries | 2026-08-03 |
+| M2.2b2b1 role authorization | Complete | `license_reviewer` could read/refresh but had no reject UI; direct authenticated reject returned HTTP 403 and candidate stayed pending | 2026-08-03 |
+| M2.2b2b1 complete checks | Complete | `npm run check`; lint/typecheck passed, 10 files / 95 tests passed, Next.js production build completed | 2026-08-03 |
+| M2.2b2b1 evidence package | Complete | `outputs/verification/M2-2b2b1/README.md` records the role contract, API/UI checks and production identity boundary | 2026-08-03 |
 
 ## Known risks and unverified items
 
@@ -117,10 +122,10 @@ Last updated: 2026-08-03
 - 榜单、点赞、评论和提交入口会受到刷量、机器人和垃圾内容攻击。
 - Demo 链接、仓库内容和用户提交均是不可信外部输入。
 - 本地 `node:sqlite` 是同步、单实例文件存储，且 API 为 Stability 1.2 / Release Candidate；它不证明生产数据库、并发、备份或恢复能力。
-- Demo 只验证单个时点的响应头，不证明持续可用、内容安全或部署成功；许可证法律/资格判断、生产身份、邮件、支付、分析和生产部署均未接入或验证。
+- Demo 只验证单个时点的响应头，不证明持续可用、内容安全或部署成功；许可证法律/资格判断、生产 OIDC/会话、邮件、支付、分析和生产部署均未接入或验证。
 - 当前 local build 和浏览器成功不证明生产托管、签名域名、监控、备份与回滚能力。
 - M2.1 只证明单实例本地候选提交与人工拒绝路径；不证明批准、发布、公开产品、榜单或流量闭环。
 
 ## Next smallest verifiable milestone
 
-选择生产身份与权限方案，定义编辑/法律复核角色、会话和审计边界；评估 GitHub App/服务端身份、Demo 网络隔离、条件请求、后台刷新和保留策略。在这些完成前保持 approve/publish 不存在；本地 `node:sqlite` 继续只作为可替换验证适配器。
+先选择生产数据库与托管方案，再按已接受的身份契约实现真实外部 OIDC、数据库会话、角色分配和审计；同时评估 GitHub App/服务端身份、Demo 网络隔离、条件请求、后台刷新和保留策略。在这些完成前保持 approve/publish 不存在；本地 `node:sqlite` 继续只作为可替换验证适配器。

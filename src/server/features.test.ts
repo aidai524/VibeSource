@@ -8,6 +8,8 @@ describe("runtime feature configuration", () => {
       mode: "disabled",
       submissionAvailable: false,
       editorAvailable: false,
+      editorIdentityMode: "disabled",
+      editorRole: null,
       githubEvidenceMode: "disabled",
       githubEvidenceAvailable: false,
       demoEvidenceMode: "disabled",
@@ -38,10 +40,24 @@ describe("runtime feature configuration", () => {
     expect(
       getRuntimeConfiguration({
         ...base,
+        VIBESOURCE_EDITOR_IDENTITY_MODE: "local-token",
         VIBESOURCE_EDITOR_TOKEN: "a-long-local-token",
         VIBESOURCE_EDITOR_ID: "qa-editor",
+        VIBESOURCE_EDITOR_ROLE: "editor",
       }).editorAvailable,
     ).toBe(true);
+  });
+
+  it("keeps the reserved external OIDC mode unavailable until an adapter exists", () => {
+    expect(getRuntimeConfiguration({
+      VIBESOURCE_SUBMISSION_MODE: "local",
+      VIBESOURCE_DB_PATH: "/tmp/vibesource-test.sqlite",
+      VIBESOURCE_EDITOR_IDENTITY_MODE: "external-oidc",
+      VIBESOURCE_EDITOR_ROLE: "admin",
+    })).toMatchObject({
+      editorIdentityMode: "external-oidc",
+      editorAvailable: false,
+    });
   });
 
   it("requires an explicit live switch and a complete editor boundary for GitHub evidence", () => {
@@ -55,8 +71,10 @@ describe("runtime feature configuration", () => {
     expect(
       getRuntimeConfiguration({
         ...base,
+        VIBESOURCE_EDITOR_IDENTITY_MODE: "local-token",
         VIBESOURCE_EDITOR_TOKEN: "a-long-local-token",
         VIBESOURCE_EDITOR_ID: "qa-editor",
+        VIBESOURCE_EDITOR_ROLE: "editor",
       }),
     ).toMatchObject({
       githubEvidenceMode: "live",
@@ -73,8 +91,10 @@ describe("runtime feature configuration", () => {
     expect(getRuntimeConfiguration(base).demoEvidenceAvailable).toBe(false);
     expect(getRuntimeConfiguration({
       ...base,
+      VIBESOURCE_EDITOR_IDENTITY_MODE: "local-token",
       VIBESOURCE_EDITOR_TOKEN: "a-long-local-token",
       VIBESOURCE_EDITOR_ID: "qa-editor",
+      VIBESOURCE_EDITOR_ROLE: "editor",
     })).toMatchObject({ demoEvidenceMode: "live", demoEvidenceAvailable: true });
   });
 });

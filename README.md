@@ -1,6 +1,6 @@
 # VibeSource
 
-> Status: M2 in progress · M2.2b2a license triage policy implemented · Architecture profile: standard
+> Status: M2 in progress · M2.2b2b1 editorial authorization contract implemented · Architecture profile: standard
 
 VibeSource 是一个专门发现和发布 AI 原生开源产品的平台。开发者可以获得首发与持续流量；用户可以直接体验产品、查看源码、判断 AI 的参与方式，并基于许可证与部署说明复用成果。
 
@@ -43,9 +43,9 @@ npm run build
 npm run start
 ```
 
-当前代码已通过 `npm run check`（89 项测试与 production build）。M2.1、M2.2a、M2.2b1 与 M2.2b2a 的证据位于 `outputs/verification/`；生产托管环境仍未选择或验证。
+当前代码已通过 `npm run check`（95 项测试与 production build）。M2.1 至 M2.2b2b1 的证据位于 `outputs/verification/`；生产托管环境仍未选择或验证。
 
-默认运行仍是有意保留的失败关闭状态：`VIBESOURCE_SUBMISSION_MODE` 未显式设为 `local` 时，页面和 API 都不会接收提交。GitHub 与 Demo 时点证据各自需要显式开启和人工点击；许可证策略只派生人工复核建议。当前没有批准、发布、公开产品、许可证法律判断或生产身份能力。
+默认运行仍是有意保留的失败关闭状态：`VIBESOURCE_SUBMISSION_MODE` 未显式设为 `local` 时，页面和 API 都不会接收提交。GitHub 与 Demo 时点证据各自需要显式开启和有权限的人工点击；许可证策略只派生人工复核建议。当前没有批准、发布、公开产品、许可证法律判断或生产身份能力。
 
 ## M2 本地流程
 
@@ -54,8 +54,10 @@ M2.1 只用于本地或受控 QA。参考 `.env.example` 在未提交到 Git 的
 ```bash
 VIBESOURCE_SUBMISSION_MODE=local
 VIBESOURCE_DB_PATH=/absolute/path/to/vibesource.sqlite
+VIBESOURCE_EDITOR_IDENTITY_MODE=local-token
 VIBESOURCE_EDITOR_TOKEN=replace-with-a-local-secret
 VIBESOURCE_EDITOR_ID=local-editor
+VIBESOURCE_EDITOR_ROLE=editor
 VIBESOURCE_GITHUB_EVIDENCE_MODE=live
 VIBESOURCE_DEMO_EVIDENCE_MODE=live
 ```
@@ -64,7 +66,7 @@ VIBESOURCE_DEMO_EVIDENCE_MODE=live
 
 - `/submit` 接收 8 项候选资料；服务端只校验字段和 URL 形状。
 - `POST /api/submissions` 原子保存 `pending_review` 记录和 `submitted` 审计事件。
-- `/editor/submissions` 使用本地编辑 token 查看待审核记录；编辑只能拒绝，或明确点击刷新 GitHub / Demo 证据。
+- `/editor/submissions` 使用本地 token 验证 `editor`、`license_reviewer`、`admin` 三种角色；每个 API 在服务端校验读取、拒绝、证据刷新或许可证复核权限。
 - 每次 GitHub 刷新只请求固定的公开仓库 API 一次，不读取 Token、不自动重试；保存来源、API 版本、观察时间、限流头、结构化快照或失败。
 - Demo 刷新解析全部地址，任一非公网地址即拒绝；一次 HTTPS GET 固定到已验证 IP，禁止重定向，收到响应头后停止且不读取正文。
 - 两类证据的最近刷新失败都会保留上一份成功快照并标为 `stale`；整体发布资格仍为 `not_checked`。
@@ -82,7 +84,8 @@ VIBESOURCE_DEMO_EVIDENCE_MODE=live
 - `docs/DECISIONS.md` — 已接受决策及其理由
 - `docs/WORKFLOW.md` — 主任务、探索、实施与审核协作方式
 - `docs/LICENSE_POLICY.md` — 许可证机器分流政策、来源版本和非法律边界
+- `docs/IDENTITY_AND_ACCESS.md` — 编辑身份、角色、权限、会话目标和未实现边界
 
 ## Current milestone
 
-M2 — 候选/拒绝审计、GitHub/Demo 时点证据与 M2.2b2a 许可证机器分流已完成本地验收。下一步是生产身份与权限边界；在此完成前仍不设计批准或发布路径。
+M2 — 候选/拒绝审计、GitHub/Demo 时点证据、许可证机器分流与 M2.2b2b1 角色授权契约已完成本地验收。下一步是在生产数据库与托管方案确定后接入真实 OIDC 和数据库会话；在此完成前仍不设计批准或发布路径。

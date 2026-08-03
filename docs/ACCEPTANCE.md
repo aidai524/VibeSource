@@ -14,7 +14,7 @@
 | A-101 | 开发者能提交合格产品 | 提交公开仓库、体验入口、AI 说明和复用信息后，产生唯一待审核记录和明确状态 | `outputs/verification/M2-1/`：自动化、浏览器提交、API/数据库与重启证据 | Partially verified — local candidate only |
 | A-102 | 不合格产品不会误发布 | 私有/不可达仓库、缺少体验路径或必填信息时显示具体原因，公开目录中不存在该产品 | M2.1–M2.2b2a：字段/外部失败、许可证不一致理由和无发布路径；生产身份/批准待补 | Partially verified — local evidence and policy only |
 | A-103 | GitHub 数据可追溯 | 产品记录包含来源、抓取时间、成功/失败状态；模拟限流后旧数据标 stale 而非伪装成最新 | `outputs/verification/M2-2a/`：真实 200/404、限流 fixture、追加存储与 stale 断言 | Partially verified — local manual refresh |
-| A-104 | 发布保持人工控制 | 自动检查通过后仍为待审核；只有授权编辑确认才能发布，拒绝/覆盖含操作者、时间和理由 | `outputs/verification/M2-1/`：本地 token、服务端 actor、版本冲突、原子拒绝与浏览器审计；生产身份/批准待验证 | Partially verified — local reject only |
+| A-104 | 发布保持人工控制 | 自动检查通过后仍为待审核；只有授权编辑确认才能发布，拒绝/覆盖含操作者、时间和理由 | `outputs/verification/M2-1/` 与 `M2-2b2b1/`：服务端 actor、角色权限、403、版本冲突、原子拒绝与浏览器审计；生产身份/批准待验证 | Partially verified — local authorization and reject only |
 | A-105 | 产品页支持体验、验证和复用判断 | 已发布页显示 Demo/部署入口、源码、AI 参与、技术栈、许可证、二开说明和每项验证状态 | 浏览器断言、截图 | Not run |
 | A-106 | 分类与每日榜单可解释 | 只包含符合资格的已发布产品；给定同一公式版本和输入窗口可复算相同结果；赞助金额不影响自然顺序 | 排名测试、快照、公式版本 | Not run |
 | A-107 | 社区互动一致且可治理 | 授权用户只能产生一条有效点赞状态，取消后计数恢复；评论可举报/治理且刷新后数据一致 | 并发/幂等测试、浏览器流程 | Not run |
@@ -31,7 +31,7 @@
 - 浏览器与持久化证据：默认关闭返回 503；隔离 fixture 完成“提交 → 审核 → 拒绝”；重启后仍为 rejected/version 2/not_checked 且两条审计完整；390×844 与 1280px 无横向溢出，控制台无 warning/error。详见 `outputs/verification/M2-1/`。
 - A-101 仍为部分验证，因为语法有效的候选记录尚未被外部证明为合格产品。
 - A-102 仍为部分验证，因为只覆盖缺失/非法字段，不检查私有或不可达仓库与体验。
-- A-104 仍为部分验证，因为本地 token 只能拒绝，生产身份、批准和发布均不存在。
+- A-104 仍为部分验证：本地 token 已验证按角色读取、刷新和拒绝的服务端授权，但生产身份、数据库会话、批准和发布均不存在。
 - A-109 仍为部分验证，因为 M2.1 虽真实返回 `not_checked`，但尚未读取或展示真实外部指标。
 - 在 M2.1 证据快照中，A-103、A-105 和 A-111 尚未运行；下方 M2.2a 已把 A-103/A-111 推进为局部验证，A-105 仍未运行。
 - 即使待补的 M2.1 证据完成，也不能把上述四项升级为 Verified；未满足的外部/生产条款必须继续明示。
@@ -57,6 +57,13 @@
 - 当前证据：`npm run check` 通过，包括 9 个文件中的 89 个测试和 production build；显式来源校验脚本复算快照版本、SHA-256 和标识集合。
 - 隔离浏览器中，`vercel/next.js` 的 MIT 当前证据与 MIT 声明一致，策略在同一次刷新后显示“可进入人工复核”；`facebook/react` 的 301 失效关闭；`lodash/lodash` 的 `NOASSERTION` 与 Apache 声明显示具体人工复核理由。刷新后结果可重复派生，整体仍未核验。
 - 该切片不验证法律有效性、双许可证、依赖兼容、权利归属、公开产品或生产身份；“可进入人工复核”绝不等于批准或可发布。
+
+## M2.2b2b1 验证边界
+
+- 已实现范围：定义 `editor`、`license_reviewer`、`admin` 及读取候选、拒绝候选、刷新证据、许可证复核四项应用权限；每个编辑 API 在服务端要求具体权限。
+- 当前证据：`npm run check` 通过，包括 10 个文件中的 95 个测试和 production build。隔离浏览器中 `license_reviewer` 可读取候选并刷新证据，但不显示拒绝表单；携带有效 token 直接调用拒绝 API 返回 403，候选仍为 `pending_review`。
+- `external-oidc` 配置被识别但保持不可用；本地 token、actor 和 role 只用于受控 QA，不证明生产登录、会话、MFA、撤销、角色管理或审计持久化。
+- 当前没有批准、发布或许可证法律结论操作；`license:review` 权限只保留责任边界，不生成假功能。
 
 ## Release blockers
 

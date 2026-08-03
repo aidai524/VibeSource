@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export function GET(request: Request) {
   const configuration = getRuntimeConfiguration();
-  const access = authorizeEditor(request, configuration);
+  const access = authorizeEditor(request, configuration, "submission:read");
   if (!access.ok) {
     return Response.json(
       { message: access.message },
@@ -31,8 +31,17 @@ export function GET(request: Request) {
       {
         items,
         capabilities: {
-          githubEvidenceRefresh: configuration.githubEvidenceAvailable,
-          demoEvidenceRefresh: configuration.demoEvidenceAvailable,
+          githubEvidenceRefresh:
+            configuration.githubEvidenceAvailable &&
+            access.principal.permissions.includes("evidence:refresh"),
+          demoEvidenceRefresh:
+            configuration.demoEvidenceAvailable &&
+            access.principal.permissions.includes("evidence:refresh"),
+          rejectSubmission:
+            access.principal.permissions.includes("submission:reject"),
+          licenseReview:
+            access.principal.permissions.includes("license:review"),
+          role: access.principal.role,
         },
       },
       { headers: { "cache-control": "no-store" } },

@@ -1,13 +1,18 @@
 import path from "node:path";
 
+import { isEditorRole, type EditorRole } from "@/domain/editor-identity";
+
 export type SubmissionMode = "disabled" | "local";
 export type GitHubEvidenceMode = "disabled" | "live";
 export type DemoEvidenceMode = "disabled" | "live";
+export type EditorIdentityMode = "disabled" | "local-token" | "external-oidc";
 
 export type RuntimeConfiguration = {
   readonly mode: SubmissionMode;
   readonly submissionAvailable: boolean;
   readonly editorAvailable: boolean;
+  readonly editorIdentityMode: EditorIdentityMode;
+  readonly editorRole: EditorRole | null;
   readonly githubEvidenceMode: GitHubEvidenceMode;
   readonly githubEvidenceAvailable: boolean;
   readonly demoEvidenceMode: DemoEvidenceMode;
@@ -32,6 +37,14 @@ export function getRuntimeConfiguration(
     : null;
   const editorToken = environment.VIBESOURCE_EDITOR_TOKEN?.trim() || null;
   const editorId = environment.VIBESOURCE_EDITOR_ID?.trim() || null;
+  const editorIdentityMode: EditorIdentityMode =
+    environment.VIBESOURCE_EDITOR_IDENTITY_MODE === "local-token"
+      ? "local-token"
+      : environment.VIBESOURCE_EDITOR_IDENTITY_MODE === "external-oidc"
+        ? "external-oidc"
+        : "disabled";
+  const roleCandidate = environment.VIBESOURCE_EDITOR_ROLE?.trim() || null;
+  const editorRole = isEditorRole(roleCandidate) ? roleCandidate : null;
   const githubEvidenceMode =
     environment.VIBESOURCE_GITHUB_EVIDENCE_MODE === "live"
       ? "live"
@@ -39,9 +52,11 @@ export function getRuntimeConfiguration(
   const submissionAvailable = mode === "local" && databasePath !== null;
   const editorAvailable =
     submissionAvailable &&
+    editorIdentityMode === "local-token" &&
     editorToken !== null &&
     editorToken.length >= 16 &&
-    editorId !== null;
+    editorId !== null &&
+    editorRole !== null;
   const githubEvidenceAvailable =
     editorAvailable && githubEvidenceMode === "live";
   const demoEvidenceMode = environment.VIBESOURCE_DEMO_EVIDENCE_MODE === "live"
@@ -61,6 +76,8 @@ export function getRuntimeConfiguration(
     mode,
     submissionAvailable,
     editorAvailable,
+    editorIdentityMode,
+    editorRole,
     githubEvidenceMode,
     githubEvidenceAvailable,
     demoEvidenceMode,

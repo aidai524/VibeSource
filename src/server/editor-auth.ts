@@ -1,14 +1,20 @@
 import { timingSafeEqual } from "node:crypto";
 
+import {
+  hasEditorPermission,
+  permissionsForRole,
+  type EditorPermission,
+  type EditorPrincipal,
+} from "@/domain/editor-identity";
 import type { RuntimeConfiguration } from "@/server/features";
 
 export const EDITOR_TOKEN_HEADER = "x-vibesource-editor-token";
 
 export type EditorAccess =
-  | { readonly ok: true; readonly actorId: string }
+  | { readonly ok: true; readonly actorId: string; readonly principal: EditorPrincipal }
   | {
       readonly ok: false;
-      readonly status: 401 | 503;
+      readonly status: 401 | 403 | 503;
       readonly message: string;
     };
 
@@ -25,11 +31,14 @@ function secretsMatch(expected: string, received: string): boolean {
 export function authorizeEditor(
   request: Request,
   configuration: RuntimeConfiguration,
+  requiredPermission: EditorPermission,
 ): EditorAccess {
   if (
     !configuration.editorAvailable ||
     !configuration.editorToken ||
-    !configuration.editorId
+    !configuration.editorId ||
+    !configuration.editorRole ||
+    configuration.editorIdentityMode !== "local-token"
   ) {
     return {
       ok: false,
@@ -47,7 +56,22 @@ export function authorizeEditor(
     };
   }
 
-  return { ok: true, actorId: configuration.editorId };
+  const principal: EditorPrincipal = {
+    subject: `local:${configuration.editorId}`,
+    actorId: configuration.editorId,
+    role: configuration.editorRole,
+    permissions: permissionsForRole(configuration.editorRole),
+    authenticationMethod: "local-token",
+  };
+  if (!hasEditorPermission(principal, requiredPermission)) {
+    return {
+      ok: false,
+      status: 403,
+      message: "当前编辑角色没有执行此操作的权限。",
+    };
+  }
+
+  return { ok: true, actorId: principal.actorId, principal };
 }
 
 export function hasSameOrigin(request: Request): boolean {

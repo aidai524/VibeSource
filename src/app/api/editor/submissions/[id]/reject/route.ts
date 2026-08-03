@@ -16,7 +16,7 @@ type RejectRouteContext = {
 
 export async function POST(request: Request, context: RejectRouteContext) {
   const configuration = getRuntimeConfiguration();
-  const access = authorizeEditor(request, configuration);
+  const access = authorizeEditor(request, configuration, "submission:reject");
   if (!access.ok) {
     return Response.json(
       { message: access.message },

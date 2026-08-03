@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: M1 remains verified. M2.1 candidate/rejection, M2.2a GitHub evidence, M2.2b1 Demo evidence and M2.2b2a license triage are implemented; current checks cover 89 tests, production build, real external responses, persistence and browser rendering.
+> Status: M1 remains verified. M2.1 through M2.2b2b1 are implemented locally; current checks cover 95 tests, production build, real external responses, persistence, role authorization and browser rendering.
 
 ## Implemented M1 foundation
 
@@ -8,7 +8,7 @@
 - TypeScript 5.9 on Node.js 24 with npm 11 and `package-lock.json`.
 - ESLint 9, Vitest 4, production build, static homepage and `/api/health` route.
 - Provider-neutral Node server shape: it can run anywhere that supports the documented Node runtime; no production host has been selected or verified.
-- No database, identity provider, GitHub credential, email provider, analytics service or payment provider is connected.
+- No production database, identity provider, GitHub credential, email provider, analytics service or payment provider is connected.
 - M1 stores no business data. Homepage status and qualification copy are reviewed static content in source, not simulated product records.
 
 ## 已实现的 M2 本地切片
@@ -21,9 +21,9 @@
 - `github_evidence_attempts` 是 schema v2 追加表，保存来源、API 版本、观察时间、HTTP/限流、结构化仓库字段或明确错误；触发器禁止 update/delete。最近失败不覆盖最后成功快照，读取视图派生 `observed/stale/error/not_checked`。
 - `demo_evidence_attempts` 是 schema v3 追加表。Demo 适配器解析全部地址并拒绝任何非公网结果，请求固定到已验证 IP，保持原 Host/TLS 身份，不跟随重定向，收到响应头后销毁响应且不读取正文；最近失败同样不覆盖最后成功快照。
 - 许可证策略不新增可变状态：服务端从提交声明、当前 GitHub 成功快照和版本化 SPDX 3.28.0 OSI-approved 本地快照确定性派生三态建议。GitHub error/stale 不能通过；策略版本和来源随结果返回。
-- 本地审核需要服务端配置的 token 和由服务端持有的 actor 标识。唯一状态转换是 `pending_review -> rejected`，理由、预期版本和审计事件在同一事务内处理。
+- 本地审核使用服务端配置的 token、actor 与角色。`editor`、`license_reviewer`、`admin` 的最小权限由应用确定，每个编辑 API 在服务端校验具体权限；无权操作不只是在 UI 隐藏，而是返回 403。唯一状态转换仍是 `pending_review -> rejected`。
 - 当前不包含批准、发布、公开产品页、生产身份或许可证法律判断。
-- 当前实现通过 lint、typecheck、89 个 Vitest 测试和 production build；证据见 `outputs/verification/M2-1/`、`M2-2a/`、`M2-2b1/` 与 `M2-2b2a/`。
+- 当前实现通过 lint、typecheck、95 个 Vitest 测试和 production build；证据见 `outputs/verification/M2-1/` 至 `M2-2b2b1/`。
 
 ## System context
 
@@ -43,7 +43,7 @@ VibeSource 核心系统负责产品资料、审核状态、公开页面、社区
 
 - GitHub：公开仓库、许可证和仓库指标的外部来源。
 - Product Demo / deploy target：不可信外部链接，只能记录最近一次检查结果。
-- Identity provider：待确认。
+- Identity provider：目标为外部 OIDC/OAuth；具体供应商待确认，当前未接入。
 - Newsletter provider：待确认。
 - Analytics/observability：待确认。
 - Payment provider：MVP 后的商业验证需要，待确认。
@@ -51,7 +51,7 @@ VibeSource 核心系统负责产品资料、审核状态、公开页面、社区
 
 ## Target M2+ runtime and data flow
 
-M2.1 实现确定性提交和拒绝，M2.2a 实现编辑触发的 GitHub 时点证据。Demo 证据、生产身份、批准和发布仍是目标行为。
+M2.1 实现确定性提交和拒绝，后续切片实现 GitHub/Demo 时点证据、许可证分流和本地角色授权。生产身份适配器、批准和发布仍是目标行为。
 
 1. 开发者提交产品资料、仓库、体验入口、AI 参与声明和复用信息。
 2. 服务端校验输入，并从 GitHub 读取公开元数据；每次快照保存来源、时间、结果和错误，不允许客户端伪造“已验证”状态。
@@ -65,12 +65,12 @@ M2.1 实现确定性提交和拒绝，M2.2a 实现编辑触发的 GitHub 时点�
 
 ## Provisional module boundaries
 
-这些是逻辑职责，不代表已经选择的部署单元。M1 实现 Public web 基础；M2.1 实现候选与拒绝；M2.2a 实现本地 GitHub evidence adapter。批准、发布及其他模块仍是目标边界。
+这些是逻辑职责，不代表已经选择的部署单元。当前已实现 Public web 基础、本地候选/拒绝、证据适配器、许可证分流和角色授权契约。批准、发布及其他模块仍是目标边界。
 
 | Module | Responsibility | Inputs | Outputs | Policy owner |
 |---|---|---|---|---|
 | Public web | 榜单、分类、产品详情、来源与状态展示 | 已发布产品和榜单快照 | 页面和外部跳转 | Product rules |
-| Identity and access | 用户、开发者和编辑权限 | 登录身份、会话 | 授权上下文 | Security policy |
+| Identity and access | 用户、开发者和编辑权限 | 登录身份、会话；当前仅 local-token QA | 带角色与权限的授权上下文 | Security policy |
 | Product registry | 草稿、提交版本、必填资格和发布状态 | 开发者输入 | 可审核产品记录 | Application backend |
 | GitHub evidence adapter | 获取并标准化仓库与许可证检测证据 | 已归一化仓库 URL；当前无凭证 | 带时间戳快照或明确错误 | Verification policy |
 | License policy | 比较当前 GitHub 许可证检测、开发者声明和版本化 OSI-approved SPDX 快照 | 提交声明 + 当前 GitHub 快照 + 内置政策源 | 人工复核建议和具体理由 | Product/legal policy |
@@ -91,6 +91,7 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 | M2.2a GitHub 仓库元数据 | GitHub at observed time | 带 `observed_at`、API 版本和来源的本地快照 | SQLite v2 追加尝试；生产保留期待确认 | 最近失败显示 stale/error，不覆盖旧成功、不写伪造值 |
 | M2.2b1 Demo 可用性 | 受控请求在观察时点的响应头 | 带 `observed_at`、检查版本、HTTP、内容类型、固定 IP 与耗时的本地快照 | SQLite v3 追加尝试；生产保留策略待确认 | 最近失败显示 stale/error；一次成功不解释为持续可用 |
 | M2.2b2a 许可证策略 | 版本化代码与政策源 | 审核 API/UI 的确定性派生视图 | Git 中的策略版本、SPDX 标识快照和 SHA-256；不另存派生结果 | 政策升级必须新版本；不改写历史 GitHub 证据 |
+| M2.2b2b1 编辑授权 | 应用角色与权限映射 | 当前由服务端环境配置派生；未来由生产数据库持有 | 不保存本地会话；API 按操作授权 | external-oidc 无适配器即不可用；客户端不能选择 actor/role |
 | AI 参与、技术栈和复用说明 | 开发者声明 + 编辑审核记录 | 公开产品版本 | 版本化保存 | 显示自述或核验状态 |
 | 点赞、评论和举报 | VibeSource 业务数据库 | 聚合计数 | 必须持久化 | 幂等、限频、软删除和申诉待设计 |
 | 每日榜单 | 公式版本 + 输入窗口的派生结果 | 公共缓存 | 保存每日快照 | 可按同版本重算；赞助金额不得进入自然榜 |
@@ -104,7 +105,7 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 |---|---|---|---|---|
 | GitHub API | 仓库、许可证检测和指标证据 | M2.2a 仅未认证公开数据 | 手动重试；限流/失败可见，保留旧快照并标 stale | Partial — local real 200/404 and deterministic failures |
 | Product URLs | Demo、部署和源码跳转 | 不可信 URL；M2.2b1 不摄入正文 | 全地址公网校验、固定 IP、HTTPS、禁重定向；失败不伪造可用 | Partial — local real 200/301/reserved-address paths |
-| Identity provider | 登录与角色身份 | 账号标识、会话 | 登录失败不降级为管理员；最小权限 | No |
+| Identity provider | 登录与角色身份 | 账号标识、会话 | 登录失败不降级为管理员；最小权限 | No — external-oidc reserved but unavailable |
 | Local SQLite | M2.1 候选提交与拒绝审计 | 开发/QA 候选数据 | 只允许绝对路径和单实例；配置缺失时失效关闭 | Partial — local automated, browser and restart checks only |
 | Production database/storage | 公开业务真相和证据 | 用户与产品数据 | 备份、迁移、恢复和数据保留策略必须验证 | No |
 | Newsletter provider | 订阅与投递 | 邮箱、同意和退订状态 | 未确认或同步冲突时不发送 | No |
@@ -121,7 +122,8 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 - 渲染用户内容时防止 XSS；外链使用安全属性并避免可控开放重定向。
 - GitHub 和其他供应商权限遵循最小范围；公开数据能满足时不索取写权限。
 - 提交、投票、评论、登录和刷新任务需要限频、幂等、审计与反机器人策略。
-- 本地编辑 token 和 actor 只存在服务端环境配置；请求不得覆盖 actor，拒绝和 GitHub 刷新都必须同源。
+- 本地编辑 token、actor 和 role 只存在服务端环境配置；请求不得覆盖它们，所有编辑 API 校验操作权限，所有变更必须同源。
+- 生产目标是维护中的外部 OIDC/OAuth 库、数据库支持的不可伪造会话、IdP MFA 和应用自有角色映射；详细边界见 `docs/IDENTITY_AND_ACCESS.md`。
 - 邮件只发送给有明确同意且未退订的地址。
 - 隐私政策、数据保留、用户导出和删除流程待确认。
 
@@ -132,7 +134,7 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 - 后台任务必须可重试且幂等，并保留最后成功快照和最近错误。
 - 管理员覆盖自动检查必须记录理由；不能修改外部来源的历史快照来“修复”展示。
 - 尚未接入的支付、邮件、分析和发布功能必须禁用或明确标为开发中。
-- 提交或 GitHub 刷新配置不完整时页面能力和 API 同时失效关闭；不展示无法执行的假操作。
+- 提交、身份或证据配置不完整时页面能力和 API 同时失效关闭；无权限操作不会显示，直接 API 调用仍返回 403。
 - 不存在 approve/publish 端点或界面控件，`not_checked` 不能被解释为资格通过。
 
 ## Architecture risks
@@ -159,11 +161,12 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 - 本地 SQLite 只是可替换的单实例验证适配器，不决定 D-015 的生产数据库、对象存储或托管。
 - 整体发布资格仍为 `not_checked`；GitHub 只是带时点的局部证据。本地编辑只能刷新证据或拒绝，不能批准或发布。
 - GitHub 公开 API 使用 API 版本 `2026-03-10`，不使用 Token、自动刷新、隐式重定向或自动重试；生产接入仍由 D-014 决定。
+- 编辑授权契约使用三种应用角色和四项最小权限；`external-oidc` 在真实适配器完成前始终不可用，本地 token 不是生产身份。
 
 ## Technology decisions still pending
 
 - 生产数据库、队列/定时任务、缓存和对象存储；M2.1 的本地迁移不关闭这些决策。
 - 生产 GitHub 身份、刷新频率、条件请求、后台任务和数据保留策略。
-- 登录、角色、会话和反作弊方案。
+- 外部 OIDC 供应商、数据库会话实现、账号生命周期、角色管理与普通用户反作弊方案。
 - 托管区域、CDN、监控、备份和恢复目标。
 - Newsletter、分析与后续支付供应商及预算。

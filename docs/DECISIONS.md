@@ -17,13 +17,14 @@
 | D-017 | 2026-08-03 | M2.2a 只允许本地编辑显式触发未认证的公开 GitHub 仓库请求；每次一次、无重试、追加保存成功或失败，并把最近尝试与最后可用快照分开 | 先验证真实来源、时点、限流与 stale/error 语义，同时避免 GitHub Token 扩大到私有仓库元数据和秘密管理 | 固定 `api.github.com` 与 API 版本 `2026-03-10`；默认 disabled；响应限 1 MiB、8 秒超时、不跟随重定向；GitHub Licensee 结果只叫“检测”，不是法律结论。D-014 的生产接入仍 Open；无 approve/publish | Accepted |
 | D-018 | 2026-08-03 | M2.2b1 只允许本地编辑显式触发 Demo 响应头检查；不读取响应正文，不自动重试、跟随重定向、批准或发布 | Demo URL 是不可信输入，需要在证明真实时点可响应的同时控制 SSRF、DNS rebinding、重定向和内容摄入风险 | 仅 HTTPS；解析全部 A/AAAA 且任一非公网地址即拒绝；连接固定到已验证 IP 并保持原始 Host/TLS 身份；8 秒超时、16 KiB 响应头上限；成功/失败追加保存并派生 stale/error。许可证和生产身份仍 Open | Accepted |
 | D-019 | 2026-08-03 | M2.2b2a 使用版本化 SPDX 3.28.0 OSI-approved 快照派生许可证人工复核建议，不自动给出法律结论或发布资格 | GitHub Licensee 只匹配部分 LICENSE 文件，不能覆盖依赖、双许可证、权利归属或法律有效性；但当前证据、OSI 标识和开发者声明一致性可以确定性检查 | 136 个未废弃 OSI-approved SPDX 标识及来源 SHA-256 入库；只有当前 GitHub 成功快照可进入策略；结果为 not_ready / needs_manual_review / ready_for_manual_review，始终保持 pending_review；生产身份仍 Open | Accepted |
+| D-020 | 2026-08-03 | 生产编辑身份采用供应商中立的外部 OIDC/OAuth 目标、数据库会话和应用自有 RBAC；当前只实现失效关闭的 local-token 授权适配器 | 身份认证、会话和业务授权需要分层，且服务端必须在受保护操作附近校验权限；托管和数据库未定时不应虚构生产适配器 | 固定 editor/license_reviewer/admin 与四项权限；external-oidc 保留但不可用；供应商、账号生命周期、会话存储和角色管理仍待后续决策；无 approve/publish | Accepted |
 
 ## Open decisions
 
 - D-009 — 对外品牌、首发语言和目标市场。
 - D-011 — M2.2b2a 已接受本地机器分流政策；仓库转私有、许可证变化后的公开产品处理和法律复核流程仍 Open。
 - D-012 — AI 参与分类字段及其核验方式。
-- D-013 — 身份、投票资格、榜单公式、时区和反作弊。
+- D-013 — 编辑身份架构已由 D-020 部分关闭；普通用户身份、投票资格、榜单公式、时区和反作弊仍 Open。
 - D-014 — GitHub、Newsletter、分析和后续支付供应商。
 - D-015 — 数据库、迁移、后台任务、缓存、对象存储和生产托管供应商。
 
