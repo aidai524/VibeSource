@@ -1,0 +1,397 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+
+import type {
+  GitHubEvidenceAttempt,
+  GitHubEvidenceView,
+} from "@/domain/github-evidence";
+
+type PendingSubmission = {
+  readonly id: string;
+  readonly version: number;
+  readonly status: "pending_review";
+  readonly evidenceStatus: "not_checked";
+  readonly productName: string;
+  readonly summary: string;
+  readonly repositoryUrl: string;
+  readonly experienceUrl: string;
+  readonly aiInvolvement: string;
+  readonly techStack: string;
+  readonly licenseName: string;
+  readonly reuseNotes: string;
+  readonly createdAt: string;
+  readonly githubEvidence: GitHubEvidenceView;
+};
+
+type QueueResponse = {
+  readonly items?: readonly PendingSubmission[];
+  readonly capabilities?: {
+    readonly githubEvidenceRefresh?: boolean;
+  };
+  readonly message?: string;
+};
+
+type ReviewCardProps = {
+  readonly submission: PendingSubmission;
+  readonly token: string;
+  readonly githubEvidenceRefreshAvailable: boolean;
+  readonly onRejected: (id: string, message: string) => void;
+  readonly onStatus: (message: string) => void;
+};
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat("zh-CN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function ClaimRow({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <div className="claimRow">
+      <dt>{label}<span>开发者自述</span></dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function number(value: number): string {
+  return new Intl.NumberFormat("zh-CN").format(value);
+}
+
+function EvidenceSnapshot({ attempt }: { readonly attempt: GitHubEvidenceAttempt }) {
+  if (attempt.outcome !== "success") {
+    return null;
+  }
+  const repository = attempt.repository;
+  const license =
+    repository.licenseDetection === "detected"
+      ? [repository.licenseSpdxId, repository.licenseName]
+          .filter(Boolean)
+          .join(" · ") || "GitHub 检测到许可证文件"
+      : "GitHub 未检测到已知许可证";
+
+  return (
+    <div className="githubEvidence__snapshot">
+      <p className="githubEvidence__provenance">
+        当前时点快照 · {formatDate(attempt.observedAt)} · GitHub API {attempt.apiVersion}
+      </p>
+      <dl className="githubEvidence__facts">
+        <div><dt>仓库</dt><dd><a href={repository.htmlUrl} target="_blank" rel="noreferrer">{repository.fullName}</a></dd></div>
+        <div><dt>可见性</dt><dd>{repository.isPrivate ? "私有" : repository.visibility}</dd></div>
+        <div><dt>Stars</dt><dd>{number(repository.stars)}</dd></div>
+        <div><dt>Forks</dt><dd>{number(repository.forks)}</dd></div>
+        <div><dt>Open issues</dt><dd>{number(repository.openIssues)}</dd></div>
+        <div><dt>默认分支</dt><dd>{repository.defaultBranch}</dd></div>
+        <div><dt>最近 push</dt><dd>{formatDate(repository.pushedAt)}</dd></div>
+        <div><dt>仓库形态</dt><dd>{repository.archived ? "已归档" : "未归档"} · {repository.isFork ? "Fork" : "非 Fork"}</dd></div>
+        <div className="githubEvidence__factWide"><dt>许可证检测</dt><dd>{license}</dd></div>
+      </dl>
+      <p className="githubEvidence__rate">
+        <a href={attempt.sourceUrl} target="_blank" rel="noreferrer">查看证据来源</a>
+        {attempt.rateLimit.remaining === null
+          ? " · 限流余量未知"
+          : ` · 本次响应后余量 ${attempt.rateLimit.remaining}/${attempt.rateLimit.limit ?? "?"}`}
+        {attempt.rateLimit.resetAt ? ` · 重置于 ${formatDate(attempt.rateLimit.resetAt)}` : ""}
+      </p>
+    </div>
+  );
+}
+
+function GitHubEvidencePanel({
+  submissionId,
+  initialEvidence,
+  token,
+  refreshAvailable,
+  onStatus,
+}: {
+  readonly submissionId: string;
+  readonly initialEvidence: GitHubEvidenceView;
+  readonly token: string;
+  readonly refreshAvailable: boolean;
+  readonly onStatus: (message: string) => void;
+}) {
+  const [evidence, setEvidence] = useState(initialEvidence);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [requestError, setRequestError] = useState("");
+  const latestFailure =
+    evidence.latestAttempt?.outcome === "error" ? evidence.latestAttempt : null;
+  const usable = evidence.latestUsableAttempt;
+  const stateLabel = {
+    not_checked: "尚未请求",
+    observed: "已观察",
+    stale: "旧快照",
+    error: "刷新失败",
+  }[evidence.state];
+
+  async function refresh() {
+    setIsRefreshing(true);
+    setRequestError("");
+    onStatus("正在请求并保存 GitHub 当前时点证据…");
+    try {
+      const response = await fetch(
+        `/api/editor/submissions/${encodeURIComponent(submissionId)}/github-evidence/refresh`,
+        {
+          method: "POST",
+          headers: { "x-vibesource-editor-token": token },
+        },
+      );
+      const payload = (await response.json()) as {
+        readonly githubEvidence?: GitHubEvidenceView;
+        readonly message?: string;
+      };
+      if (!response.ok || !payload.githubEvidence) {
+        const message = payload.message ?? "GitHub 证据刷新请求失败。";
+        setRequestError(message);
+        onStatus(message);
+        return;
+      }
+      setEvidence(payload.githubEvidence);
+      onStatus(payload.message ?? "GitHub 证据状态已更新。");
+    } catch {
+      const message = "无法连接审核服务，本次 GitHub 尝试没有保存。";
+      setRequestError(message);
+      onStatus(message);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
+
+  return (
+    <section className="githubEvidence" aria-labelledby={`github-evidence-${submissionId}`} aria-busy={isRefreshing}>
+      <div className="githubEvidence__header">
+        <div>
+          <p className="eyebrow">GITHUB / POINT-IN-TIME</p>
+          <h3 id={`github-evidence-${submissionId}`}>GitHub 仓库证据</h3>
+        </div>
+        <span className={`evidenceState evidenceState--${evidence.state}`}>{stateLabel}</span>
+      </div>
+
+      {evidence.state === "not_checked" ? (
+        <p className="githubEvidence__empty">尚未向 GitHub 请求仓库数据。开发者声明仍然只是声明。</p>
+      ) : null}
+      {latestFailure ? (
+        <div className="githubEvidence__failure" role="status">
+          <strong>{evidence.state === "stale" ? "最新刷新失败，下面保留的是旧快照。" : "没有可用的仓库快照。"}</strong>
+          <p>{latestFailure.errorMessage} · {formatDate(latestFailure.observedAt)} · {latestFailure.errorCode}{latestFailure.httpStatus ? ` · HTTP ${latestFailure.httpStatus}` : ""}</p>
+        </div>
+      ) : null}
+      {usable ? <EvidenceSnapshot attempt={usable} /> : null}
+
+      <div className="githubEvidence__action">
+        <p>
+          {refreshAvailable
+            ? "每次点击会发起一次未认证的公开 GitHub API 请求并追加保存结果；不会批准或发布产品。"
+            : "当前环境没有启用实时刷新；页面不会伪装请求或自动抓取。"}
+        </p>
+        {refreshAvailable ? (
+          <button className="button button--outline" type="button" onClick={refresh} disabled={isRefreshing}>
+            {isRefreshing ? "刷新 GitHub 证据（请求中…）" : evidence.state === "not_checked" ? "请求并保存 GitHub 证据" : "刷新 GitHub 证据"}
+          </button>
+        ) : null}
+      </div>
+      {requestError ? <p className="formField__error" role="alert">{requestError}</p> : null}
+    </section>
+  );
+}
+
+function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, onRejected, onStatus }: ReviewCardProps) {
+  const [reason, setReason] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function reject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsRejecting(true);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `/api/editor/submissions/${encodeURIComponent(submission.id)}/reject`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-vibesource-editor-token": token,
+          },
+          body: JSON.stringify({ reason, expectedVersion: submission.version }),
+        },
+      );
+      const payload = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        setError(payload.message ?? "拒绝操作失败，请刷新队列后重试。");
+        return;
+      }
+
+      onRejected(submission.id, `已拒绝 ${submission.productName}，理由和编辑身份已写入审计事件。`);
+    } catch {
+      setError("无法连接审核服务，记录没有被更改。");
+    } finally {
+      setIsRejecting(false);
+    }
+  }
+
+  return (
+    <article className="reviewCard" aria-labelledby={`submission-${submission.id}`}>
+      <header className="reviewCard__header">
+        <div>
+          <p className="eyebrow">PENDING / VERSION {submission.version}</p>
+          <h2 id={`submission-${submission.id}`}>{submission.productName}</h2>
+        </div>
+        <span className="statusBadge statusBadge--pending">待人工审核</span>
+      </header>
+
+      <div className="evidenceWarning">
+        <strong>整体仍未核验</strong>
+        <p>GitHub 时点证据不能替代 Demo 可用性、许可证法律判断和人工审核，不能据此批准发布。</p>
+      </div>
+
+      <GitHubEvidencePanel
+        submissionId={submission.id}
+        initialEvidence={submission.githubEvidence}
+        token={token}
+        refreshAvailable={githubEvidenceRefreshAvailable}
+        onStatus={onStatus}
+      />
+
+      <dl className="claimList">
+        <ClaimRow label="产品简介" value={submission.summary} />
+        <div className="claimRow">
+          <dt>源码地址<span>开发者提交地址</span></dt>
+          <dd><a href={submission.repositoryUrl} target="_blank" rel="noreferrer">{submission.repositoryUrl}</a></dd>
+        </div>
+        <div className="claimRow">
+          <dt>体验路径<span>外部未检查</span></dt>
+          <dd><a href={submission.experienceUrl} target="_blank" rel="noreferrer">{submission.experienceUrl}</a></dd>
+        </div>
+        <ClaimRow label="AI 参与" value={submission.aiInvolvement} />
+        <ClaimRow label="技术栈" value={submission.techStack} />
+        <ClaimRow label="许可证声明" value={submission.licenseName} />
+        <ClaimRow label="部署与复用" value={submission.reuseNotes} />
+      </dl>
+
+      <p className="reviewCard__meta">提交于 {formatDate(submission.createdAt)} · {submission.id}</p>
+
+      <form className="rejectForm" onSubmit={reject}>
+        <label htmlFor={`reason-${submission.id}`}>拒绝理由 <span aria-hidden="true">*</span></label>
+        <textarea
+          id={`reason-${submission.id}`}
+          name="reason"
+          required
+          minLength={10}
+          maxLength={500}
+          rows={3}
+          value={reason}
+          onChange={(event) => setReason(event.currentTarget.value)}
+          aria-describedby={`reason-hint-${submission.id}${error ? ` reason-error-${submission.id}` : ""}`}
+          aria-invalid={error ? "true" : undefined}
+        />
+        <p className="formField__hint" id={`reason-hint-${submission.id}`}>
+          10–500 个字符；理由会与服务器端编辑身份、前后状态和时间一起保存。
+        </p>
+        {error ? <p className="formField__error" id={`reason-error-${submission.id}`}>{error}</p> : null}
+        <button className="button button--danger" type="submit" disabled={isRejecting}>
+          {isRejecting ? "拒绝并记录（处理中…）" : "拒绝并记录理由"}
+        </button>
+      </form>
+    </article>
+  );
+}
+
+export function ReviewConsole() {
+  const [token, setToken] = useState("");
+  const [items, setItems] = useState<readonly PendingSubmission[] | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+  const [githubEvidenceRefreshAvailable, setGitHubEvidenceRefreshAvailable] = useState(false);
+
+  async function loadQueue(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsLoading(true);
+    setError("");
+    setStatusMessage("正在读取待审核队列…");
+
+    try {
+      const response = await fetch("/api/editor/submissions", {
+        headers: { "x-vibesource-editor-token": token },
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as QueueResponse;
+      if (!response.ok || !payload.items) {
+        const message = payload.message ?? "无法读取审核队列。";
+        setError(message);
+        setStatusMessage(message);
+        return;
+      }
+
+      setItems(payload.items);
+      setGitHubEvidenceRefreshAvailable(
+        payload.capabilities?.githubEvidenceRefresh === true,
+      );
+      setStatusMessage(`审核队列已载入，共 ${payload.items.length} 条待审核记录。`);
+    } catch {
+      const message = "无法连接审核服务。";
+      setError(message);
+      setStatusMessage(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="srOnly" role="status" aria-live="polite">{statusMessage}</div>
+      <form className="editorGate" onSubmit={loadQueue}>
+        <div>
+          <label htmlFor="editor-token">本地编辑凭证</label>
+          <p id="editor-token-hint">仅保存在当前页面内存，不写入 URL、localStorage 或数据库。</p>
+        </div>
+        <input
+          id="editor-token"
+          name="editorToken"
+          type="password"
+          required
+          minLength={16}
+          autoComplete="off"
+          spellCheck={false}
+          value={token}
+          onChange={(event) => setToken(event.currentTarget.value)}
+          aria-describedby={`editor-token-hint${error ? " editor-token-error" : ""}`}
+          aria-invalid={error ? "true" : undefined}
+        />
+        <button className="button button--primary" type="submit" disabled={isLoading}>
+          {isLoading ? "读取队列（处理中…）" : "读取待审核队列"}
+        </button>
+        {error ? <p className="formField__error" id="editor-token-error" role="alert">{error}</p> : null}
+      </form>
+
+      {items ? (
+        <section className="reviewQueue" aria-labelledby="review-queue-title">
+          <div className="reviewQueue__heading">
+            <div><p className="eyebrow">QUEUE / LIVE</p><h2 id="review-queue-title">待审核队列</h2></div>
+            <span>{items.length} 条</span>
+          </div>
+          {items.length === 0 ? (
+            <div className="emptyPanel"><h3>当前没有待审核记录</h3><p>这里不会用样例卡片填充空状态。</p></div>
+          ) : (
+            items.map((submission) => (
+              <ReviewCard
+                key={submission.id}
+                submission={submission}
+                token={token}
+                githubEvidenceRefreshAvailable={githubEvidenceRefreshAvailable}
+                onStatus={setStatusMessage}
+                onRejected={(id, message) => {
+                  setItems((current) => current?.filter((item) => item.id !== id) ?? []);
+                  setStatusMessage(message);
+                }}
+              />
+            ))
+          )}
+        </section>
+      ) : null}
+    </>
+  );
+}
