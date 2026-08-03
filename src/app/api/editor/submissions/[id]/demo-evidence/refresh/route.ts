@@ -18,7 +18,7 @@ export async function POST(
   context: { params: Promise<{ id: string }> },
 ) {
   const configuration = getRuntimeConfiguration();
-  const access = authorizeEditor(request, configuration, "evidence:refresh");
+  const access = await authorizeEditor(request, configuration, "evidence:refresh");
   if (!access.ok) {
     return Response.json({ message: access.message }, { status: access.status, headers: noStoreHeaders });
   }

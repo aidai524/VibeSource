@@ -14,7 +14,7 @@
 | A-101 | 开发者能提交合格产品 | 提交公开仓库、体验入口、AI 说明和复用信息后，产生唯一待审核记录和明确状态 | `outputs/verification/M2-1/`：自动化、浏览器提交、API/数据库与重启证据 | Partially verified — local candidate only |
 | A-102 | 不合格产品不会误发布 | 私有/不可达仓库、缺少体验路径或必填信息时显示具体原因，公开目录中不存在该产品 | M2.1–M2.2b2a：字段/外部失败、许可证不一致理由和无发布路径；生产身份/批准待补 | Partially verified — local evidence and policy only |
 | A-103 | GitHub 数据可追溯 | 产品记录包含来源、抓取时间、成功/失败状态；模拟限流后旧数据标 stale 而非伪装成最新 | `outputs/verification/M2-2a/`：真实 200/404、限流 fixture、追加存储与 stale 断言 | Partially verified — local manual refresh |
-| A-104 | 发布保持人工控制 | 自动检查通过后仍为待审核；只有授权编辑确认才能发布，拒绝/覆盖含操作者、时间和理由 | `outputs/verification/M2-1/` 与 `M2-2b2b1/`：服务端 actor、角色权限、403、版本冲突、原子拒绝与浏览器审计；生产身份/批准待验证 | Partially verified — local authorization and reject only |
+| A-104 | 发布保持人工控制 | 自动检查通过后仍为待审核；只有授权编辑确认才能发布，拒绝/覆盖含操作者、时间和理由 | `outputs/verification/M2-1/`、`M2-2b2b1/`、`M2-2b2b2a/`：actor、角色、401/403/503、原子拒绝与浏览器审计；真实 OAuth/批准待验证 | Partially verified — adapter and local reject only |
 | A-105 | 产品页支持体验、验证和复用判断 | 已发布页显示 Demo/部署入口、源码、AI 参与、技术栈、许可证、二开说明和每项验证状态 | 浏览器断言、截图 | Not run |
 | A-106 | 分类与每日榜单可解释 | 只包含符合资格的已发布产品；给定同一公式版本和输入窗口可复算相同结果；赞助金额不影响自然顺序 | 排名测试、快照、公式版本 | Not run |
 | A-107 | 社区互动一致且可治理 | 授权用户只能产生一条有效点赞状态，取消后计数恢复；评论可举报/治理且刷新后数据一致 | 并发/幂等测试、浏览器流程 | Not run |
@@ -64,6 +64,13 @@
 - 当前证据：`npm run check` 通过，包括 10 个文件中的 95 个测试和 production build。隔离浏览器中 `license_reviewer` 可读取候选并刷新证据，但不显示拒绝表单；携带有效 token 直接调用拒绝 API 返回 403，候选仍为 `pending_review`。
 - `external-oidc` 配置被识别但保持不可用；本地 token、actor 和 role 只用于受控 QA，不证明生产登录、会话、MFA、撤销、角色管理或审计持久化。
 - 当前没有批准、发布或许可证法律结论操作；`license:review` 权限只保留责任边界，不生成假功能。
+
+## M2.2b2b2a 验证边界
+
+- 已实现范围：Better Auth 1.6.25 + GitHub OAuth handler、PostgreSQL 数据库 session、固定八小时无滑动刷新、OAuth token 加密、state 入库、账号关联关闭、数据库限流和应用自有角色授权表。
+- 当前证据：`npm run check` 通过，包括 12 个文件中的 102 个测试和 production build；自动化覆盖配置失效关闭、外部 principal、未分配角色 403、权限 403、基础设施异常 503 与 auth route 默认 503。
+- 隔离浏览器中，本地 token 模式仍载入 `editor · 0 条`；外部模式显示 GitHub 登录和“登录不等于授权”说明，未登录明确返回 401；两种模式 1280px 无横向溢出。
+- 未验证：真实 GitHub callback/private-email、PostgreSQL migration/session/revocation、Neon pooling、Vercel secrets/runtime、备份恢复和业务数据迁移。缺少这些证据时不能称为生产身份已完成。
 
 ## Release blockers
 

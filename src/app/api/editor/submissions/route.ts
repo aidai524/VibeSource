@@ -6,9 +6,9 @@ import { evaluateLicensePolicy } from "@/domain/license-policy";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export function GET(request: Request) {
+export async function GET(request: Request) {
   const configuration = getRuntimeConfiguration();
-  const access = authorizeEditor(request, configuration, "submission:read");
+  const access = await authorizeEditor(request, configuration, "submission:read");
   if (!access.ok) {
     return Response.json(
       { message: access.message },

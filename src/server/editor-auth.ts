@@ -18,6 +18,16 @@ export type EditorAccess =
       readonly message: string;
     };
 
+export type ExternalPrincipalResolver = (
+  request: Request,
+  configuration: NonNullable<RuntimeConfiguration["productionAuth"]>,
+) => Promise<ExternalPrincipalResolution>;
+
+export type ExternalPrincipalResolution =
+  | { readonly kind: "unauthenticated" }
+  | { readonly kind: "unassigned" }
+  | { readonly kind: "principal"; readonly principal: EditorPrincipal };
+
 function secretsMatch(expected: string, received: string): boolean {
   const expectedBytes = Buffer.from(expected);
   const receivedBytes = Buffer.from(received);
@@ -28,11 +38,53 @@ function secretsMatch(expected: string, received: string): boolean {
   );
 }
 
-export function authorizeEditor(
+export async function authorizeEditor(
   request: Request,
   configuration: RuntimeConfiguration,
   requiredPermission: EditorPermission,
-): EditorAccess {
+  resolveExternalPrincipal?: ExternalPrincipalResolver,
+): Promise<EditorAccess> {
+  if (
+    configuration.editorIdentityMode === "external-oidc" &&
+    configuration.editorAvailable &&
+    configuration.productionAuth
+  ) {
+    try {
+      const resolver = resolveExternalPrincipal ??
+        (await import("@/server/production-auth")).resolveExternalEditorPrincipal;
+      const resolution = await resolver(request, configuration.productionAuth);
+      if (resolution.kind === "unauthenticated") {
+        return {
+          ok: false,
+          status: 401,
+          message: "请先使用已获授权的 GitHub 账号登录。",
+        };
+      }
+      if (resolution.kind === "unassigned") {
+        return {
+          ok: false,
+          status: 403,
+          message: "当前账号尚未被授予 VibeSource 编辑角色。",
+        };
+      }
+      const { principal } = resolution;
+      if (!hasEditorPermission(principal, requiredPermission)) {
+        return {
+          ok: false,
+          status: 403,
+          message: "当前编辑角色没有执行此操作的权限。",
+        };
+      }
+      return { ok: true, actorId: principal.actorId, principal };
+    } catch {
+      return {
+        ok: false,
+        status: 503,
+        message: "生产身份服务暂时不可用。",
+      };
+    }
+  }
+
   if (
     !configuration.editorAvailable ||
     !configuration.editorToken ||
@@ -43,7 +95,7 @@ export function authorizeEditor(
     return {
       ok: false,
       status: 503,
-      message: "本地编辑审核尚未配置。",
+      message: "编辑身份审核尚未配置。",
     };
   }
 

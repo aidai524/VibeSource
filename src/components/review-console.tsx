@@ -15,6 +15,13 @@ import type {
   LicensePolicyReason,
   LicensePolicyView,
 } from "@/domain/license-policy";
+import type { EditorIdentityMode } from "@/server/features";
+
+function editorHeaders(token: string): HeadersInit | undefined {
+  return token
+    ? { "x-vibesource-editor-token": token }
+    : undefined;
+}
 
 type PendingSubmission = {
   readonly id: string;
@@ -117,7 +124,7 @@ function DemoEvidencePanel({
     try {
       const response = await fetch(
         `/api/editor/submissions/${encodeURIComponent(submissionId)}/demo-evidence/refresh`,
-        { method: "POST", headers: { "x-vibesource-editor-token": token } },
+        { method: "POST", headers: editorHeaders(token) },
       );
       const payload = await response.json() as { readonly demoEvidence?: DemoEvidenceView; readonly message?: string };
       if (!response.ok || !payload.demoEvidence) {
@@ -312,7 +319,7 @@ function GitHubEvidencePanel({
         `/api/editor/submissions/${encodeURIComponent(submissionId)}/github-evidence/refresh`,
         {
           method: "POST",
-          headers: { "x-vibesource-editor-token": token },
+          headers: editorHeaders(token),
         },
       );
       const payload = (await response.json()) as {
@@ -394,7 +401,7 @@ function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, demoEvi
           method: "POST",
           headers: {
             "content-type": "application/json",
-            "x-vibesource-editor-token": token,
+            ...editorHeaders(token),
           },
           body: JSON.stringify({ reason, expectedVersion: submission.version }),
         },
@@ -497,7 +504,11 @@ function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, demoEvi
   );
 }
 
-export function ReviewConsole() {
+export function ReviewConsole({
+  identityMode,
+}: {
+  readonly identityMode: EditorIdentityMode;
+}) {
   const [token, setToken] = useState("");
   const [items, setItems] = useState<readonly PendingSubmission[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -508,15 +519,15 @@ export function ReviewConsole() {
   const [rejectAvailable, setRejectAvailable] = useState(false);
   const [editorRole, setEditorRole] = useState<EditorRole | null>(null);
 
-  async function loadQueue(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function loadQueue(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     setIsLoading(true);
     setError("");
     setStatusMessage("正在读取待审核队列…");
 
     try {
       const response = await fetch("/api/editor/submissions", {
-        headers: { "x-vibesource-editor-token": token },
+        headers: editorHeaders(token),
         cache: "no-store",
       });
       const payload = (await response.json()) as QueueResponse;
@@ -546,9 +557,26 @@ export function ReviewConsole() {
     }
   }
 
+  async function signInWithGitHub() {
+    setError("");
+    setStatusMessage("正在跳转到 GitHub 身份验证…");
+    try {
+      const { authClient } = await import("@/client/auth-client");
+      await authClient.signIn.social({
+        provider: "github",
+        callbackURL: "/editor/submissions",
+      });
+    } catch {
+      const message = "无法启动 GitHub 身份验证。";
+      setError(message);
+      setStatusMessage(message);
+    }
+  }
+
   return (
     <>
       <div className="srOnly" role="status" aria-live="polite">{statusMessage}</div>
+      {identityMode === "local-token" ? (
       <form className="editorGate" onSubmit={loadQueue}>
         <div>
           <label htmlFor="editor-token">本地编辑凭证</label>
@@ -572,6 +600,21 @@ export function ReviewConsole() {
         </button>
         {error ? <p className="formField__error" id="editor-token-error" role="alert">{error}</p> : null}
       </form>
+      ) : (
+        <section className="editorGate" aria-labelledby="github-editor-login-title">
+          <div>
+            <h2 id="github-editor-login-title">GitHub 编辑身份</h2>
+            <p>登录只证明账号身份；还必须在应用数据库中存在未撤销的编辑角色授权。</p>
+          </div>
+          <button className="button button--primary" type="button" onClick={signInWithGitHub}>
+            使用 GitHub 登录
+          </button>
+          <button className="button button--secondary" type="button" onClick={() => loadQueue()} disabled={isLoading}>
+            {isLoading ? "验证会话（处理中…）" : "验证现有会话"}
+          </button>
+          {error ? <p className="formField__error" role="alert">{error}</p> : null}
+        </section>
+      )}
 
       {items ? (
         <section className="reviewQueue" aria-labelledby="review-queue-title">

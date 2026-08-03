@@ -1,6 +1,6 @@
 # VibeSource handoff
 
-Last updated: 2026-08-03
+Last updated: 2026-08-04
 
 ## Current state
 
@@ -36,12 +36,16 @@ Last updated: 2026-08-03
 - M2.2b2b1 已实现编辑授权契约：`editor`、`license_reviewer`、`admin` 映射到四项最小权限，所有编辑 API 在服务端按操作授权，UI 同步移除无权操作。
 - `external-oidc` 是保留但不可用的生产目标；当前 local-token 只用于受控 QA，不是生产身份或会话。
 - 当前 `npm run check` 通过：10 个文件、95 个测试、lint、typecheck 和 production build；角色 UI 与直接 API 403 已通过隔离浏览器验证。
+- M2.2b2b2a 已实现默认关闭的 Better Auth 1.6.25 + GitHub OAuth + PostgreSQL session 适配器；完整 HTTPS/secret/OAuth/database 配置才启用真实 auth handler。
+- 敏感编辑 API 强制数据库 session 查询，再读取应用自有的唯一活动角色 grant；未认证 401、已认证未授权 403、基础设施故障 503，GitHub identity 不自动授予角色。
+- PostgreSQL 核心 auth schema 与可审计角色授权迁移已提交；Vercel + Neon pooled PostgreSQL 是首个验证目标，但没有创建外部资源，也没有迁移本地业务数据。
+- 当前 `npm run check` 通过：12 个文件、102 个测试、lint、typecheck 和 production build；本地 token 与外部登录空状态浏览器回归通过。
 
 ## In progress
 
 - 保持 M2.1 的本地证据包可复现，不把它升级解释为生产能力。
 - 设计生产许可证人工复核流程；本地机器分流已完成，但公开产品变更处理、生产刷新和保留策略仍待定。
-- 按 D-020 在生产数据库与托管方案确定后实现外部 OIDC、数据库会话、角色分配和审计；本地 token 不能升级解释为生产身份。
+- 按 D-021 创建并验证 GitHub OAuth、Neon preview database 与 Vercel preview；应用/复核迁移、session/revocation 和角色变化。本地 token 不能升级解释为生产身份。
 - 为 M2 选择生产数据库、迁移和托管方案；本地 `node:sqlite` 不关闭 D-015。
 - 确认 Newsletter、分析和后续支付方案。
 - 确认开放源码资格、AI 参与分类、榜单算法与反作弊政策。
@@ -114,6 +118,9 @@ Last updated: 2026-08-03
 | M2.2b2b1 role authorization | Complete | `license_reviewer` could read/refresh but had no reject UI; direct authenticated reject returned HTTP 403 and candidate stayed pending | 2026-08-03 |
 | M2.2b2b1 complete checks | Complete | `npm run check`; lint/typecheck passed, 10 files / 95 tests passed, Next.js production build completed | 2026-08-03 |
 | M2.2b2b1 evidence package | Complete | `outputs/verification/M2-2b2b1/README.md` records the role contract, API/UI checks and production identity boundary | 2026-08-03 |
+| M2.2b2b2a automated checks | Complete | `npm run check`; lint/typecheck passed, 12 files / 102 tests passed, Next.js production build completed | 2026-08-04 |
+| M2.2b2b2a browser fallback | Complete | Local token queue remained functional; external mode showed GitHub login and returned explicit unauthenticated state; both had no 1280px overflow | 2026-08-04 |
+| M2.2b2b2a evidence package | Complete | `outputs/verification/M2-2b2b2a/README.md` records implementation, failure boundaries and missing live provider/database verification | 2026-08-04 |
 
 ## Known risks and unverified items
 
@@ -122,10 +129,11 @@ Last updated: 2026-08-03
 - 榜单、点赞、评论和提交入口会受到刷量、机器人和垃圾内容攻击。
 - Demo 链接、仓库内容和用户提交均是不可信外部输入。
 - 本地 `node:sqlite` 是同步、单实例文件存储，且 API 为 Stability 1.2 / Release Candidate；它不证明生产数据库、并发、备份或恢复能力。
-- Demo 只验证单个时点的响应头，不证明持续可用、内容安全或部署成功；许可证法律/资格判断、生产 OIDC/会话、邮件、支付、分析和生产部署均未接入或验证。
+- Demo 只验证单个时点的响应头，不证明持续可用、内容安全或部署成功；许可证法律/资格判断、真实 GitHub OAuth/PostgreSQL/Vercel、邮件、支付、分析和生产部署均未验证。
 - 当前 local build 和浏览器成功不证明生产托管、签名域名、监控、备份与回滚能力。
+- 新增依赖已锁定并通过 build/test，但当前安全公告查询未执行；对外发送依赖清单前需明确授权，生产上线前必须补做依赖审计。
 - M2.1 只证明单实例本地候选提交与人工拒绝路径；不证明批准、发布、公开产品、榜单或流量闭环。
 
 ## Next smallest verifiable milestone
 
-先选择生产数据库与托管方案，再按已接受的身份契约实现真实外部 OIDC、数据库会话、角色分配和审计；同时评估 GitHub App/服务端身份、Demo 网络隔离、条件请求、后台刷新和保留策略。在这些完成前保持 approve/publish 不存在；本地 `node:sqlite` 继续只作为可替换验证适配器。
+由人工创建 GitHub OAuth App、Neon preview database 和 Vercel preview project；在预览环境复核并应用迁移，验证 callback、private email、session expiry/revocation、角色 grant/revoke、secret rotation 和故障路径。随后把候选/证据/审计存储从 SQLite 迁到 PostgreSQL。在这些完成前保持 approve/publish 不存在。

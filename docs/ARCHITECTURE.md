@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: M1 remains verified. M2.1 through M2.2b2b1 are implemented locally; current checks cover 95 tests, production build, real external responses, persistence, role authorization and browser rendering.
+> Status: M1 remains verified. M2.1 through M2.2b2b2a are implemented; current checks cover 102 tests, production build, real evidence responses, local persistence, external-auth fail-closed behavior, role authorization and browser rendering. GitHub OAuth/PostgreSQL/Vercel remain live-unverified.
 
 ## Implemented M1 foundation
 
@@ -8,7 +8,7 @@
 - TypeScript 5.9 on Node.js 24 with npm 11 and `package-lock.json`.
 - ESLint 9, Vitest 4, production build, static homepage and `/api/health` route.
 - Provider-neutral Node server shape: it can run anywhere that supports the documented Node runtime; no production host has been selected or verified.
-- No production database, identity provider, GitHub credential, email provider, analytics service or payment provider is connected.
+- No production database, GitHub OAuth credential, email provider, analytics service or payment provider is connected; adapters and migrations are code only.
 - M1 stores no business data. Homepage status and qualification copy are reviewed static content in source, not simulated product records.
 
 ## 已实现的 M2 本地切片
@@ -22,8 +22,9 @@
 - `demo_evidence_attempts` 是 schema v3 追加表。Demo 适配器解析全部地址并拒绝任何非公网结果，请求固定到已验证 IP，保持原 Host/TLS 身份，不跟随重定向，收到响应头后销毁响应且不读取正文；最近失败同样不覆盖最后成功快照。
 - 许可证策略不新增可变状态：服务端从提交声明、当前 GitHub 成功快照和版本化 SPDX 3.28.0 OSI-approved 本地快照确定性派生三态建议。GitHub error/stale 不能通过；策略版本和来源随结果返回。
 - 本地审核使用服务端配置的 token、actor 与角色。`editor`、`license_reviewer`、`admin` 的最小权限由应用确定，每个编辑 API 在服务端校验具体权限；无权操作不只是在 UI 隐藏，而是返回 403。唯一状态转换仍是 `pending_review -> rejected`。
+- 外部身份模式使用 Better Auth + GitHub OAuth + PostgreSQL 数据库会话。完整配置才暴露真实 auth handler；敏感编辑 API 每次查库验证 session，再读取唯一活动角色授权。未认证 401、已认证未授权 403、身份基础设施故障 503。
 - 当前不包含批准、发布、公开产品页、生产身份或许可证法律判断。
-- 当前实现通过 lint、typecheck、95 个 Vitest 测试和 production build；证据见 `outputs/verification/M2-1/` 至 `M2-2b2b1/`。
+- 当前实现通过 lint、typecheck、102 个 Vitest 测试和 production build；证据见 `outputs/verification/M2-1/` 至 `M2-2b2b2a/`。
 
 ## System context
 
@@ -43,7 +44,7 @@ VibeSource 核心系统负责产品资料、审核状态、公开页面、社区
 
 - GitHub：公开仓库、许可证和仓库指标的外部来源。
 - Product Demo / deploy target：不可信外部链接，只能记录最近一次检查结果。
-- Identity provider：目标为外部 OIDC/OAuth；具体供应商待确认，当前未接入。
+- Identity provider：GitHub OAuth through Better Auth；凭证和真实应用尚未创建。
 - Newsletter provider：待确认。
 - Analytics/observability：待确认。
 - Payment provider：MVP 后的商业验证需要，待确认。
@@ -92,6 +93,7 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 | M2.2b1 Demo 可用性 | 受控请求在观察时点的响应头 | 带 `observed_at`、检查版本、HTTP、内容类型、固定 IP 与耗时的本地快照 | SQLite v3 追加尝试；生产保留策略待确认 | 最近失败显示 stale/error；一次成功不解释为持续可用 |
 | M2.2b2a 许可证策略 | 版本化代码与政策源 | 审核 API/UI 的确定性派生视图 | Git 中的策略版本、SPDX 标识快照和 SHA-256；不另存派生结果 | 政策升级必须新版本；不改写历史 GitHub 证据 |
 | M2.2b2b1 编辑授权 | 应用角色与权限映射 | 当前由服务端环境配置派生；未来由生产数据库持有 | 不保存本地会话；API 按操作授权 | external-oidc 无适配器即不可用；客户端不能选择 actor/role |
+| M2.2b2b2a 外部身份 | GitHub identity + Better Auth session + application role grant | OAuth callback、数据库 session、活动 grant | `EditorPrincipal` 或明确 401/403/503 | fixed 8h session；无 cookie cache；GitHub claim 不授予角色 |
 | AI 参与、技术栈和复用说明 | 开发者声明 + 编辑审核记录 | 公开产品版本 | 版本化保存 | 显示自述或核验状态 |
 | 点赞、评论和举报 | VibeSource 业务数据库 | 聚合计数 | 必须持久化 | 幂等、限频、软删除和申诉待设计 |
 | 每日榜单 | 公式版本 + 输入窗口的派生结果 | 公共缓存 | 保存每日快照 | 可按同版本重算；赞助金额不得进入自然榜 |
@@ -105,7 +107,8 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 |---|---|---|---|---|
 | GitHub API | 仓库、许可证检测和指标证据 | M2.2a 仅未认证公开数据 | 手动重试；限流/失败可见，保留旧快照并标 stale | Partial — local real 200/404 and deterministic failures |
 | Product URLs | Demo、部署和源码跳转 | 不可信 URL；M2.2b1 不摄入正文 | 全地址公网校验、固定 IP、HTTPS、禁重定向；失败不伪造可用 | Partial — local real 200/301/reserved-address paths |
-| Identity provider | 登录与角色身份 | 账号标识、会话 | 登录失败不降级为管理员；最小权限 | No — external-oidc reserved but unavailable |
+| GitHub OAuth / Better Auth | 编辑账号身份与数据库 session | OAuth client secret、账号、session、加密 token | 配置缺失 503；未登录 401；无角色 403；不降级 | Partial — adapter/tests/browser UI only, no live OAuth |
+| Neon PostgreSQL | 首个生产数据库验证目标 | session、账号、角色；未来业务数据 | pooled connection；故障 503；迁移/备份/恢复需验证 | No — no project or database connected |
 | Local SQLite | M2.1 候选提交与拒绝审计 | 开发/QA 候选数据 | 只允许绝对路径和单实例；配置缺失时失效关闭 | Partial — local automated, browser and restart checks only |
 | Production database/storage | 公开业务真相和证据 | 用户与产品数据 | 备份、迁移、恢复和数据保留策略必须验证 | No |
 | Newsletter provider | 订阅与投递 | 邮箱、同意和退订状态 | 未确认或同步冲突时不发送 | No |
@@ -123,7 +126,7 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 - GitHub 和其他供应商权限遵循最小范围；公开数据能满足时不索取写权限。
 - 提交、投票、评论、登录和刷新任务需要限频、幂等、审计与反机器人策略。
 - 本地编辑 token、actor 和 role 只存在服务端环境配置；请求不得覆盖它们，所有编辑 API 校验操作权限，所有变更必须同源。
-- 生产目标是维护中的外部 OIDC/OAuth 库、数据库支持的不可伪造会话、IdP MFA 和应用自有角色映射；详细边界见 `docs/IDENTITY_AND_ACCESS.md`。
+- 外部模式使用 Better Auth 数据库 session，禁用 session refresh/cookie cache，OAuth token 加密、state 入库、account linking 关闭；GitHub 本身不提供该应用的 MFA 强制，特权账号 MFA 仍是运营准入要求。
 - 邮件只发送给有明确同意且未退订的地址。
 - 隐私政策、数据保留、用户导出和删除流程待确认。
 
@@ -161,12 +164,12 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 - 本地 SQLite 只是可替换的单实例验证适配器，不决定 D-015 的生产数据库、对象存储或托管。
 - 整体发布资格仍为 `not_checked`；GitHub 只是带时点的局部证据。本地编辑只能刷新证据或拒绝，不能批准或发布。
 - GitHub 公开 API 使用 API 版本 `2026-03-10`，不使用 Token、自动刷新、隐式重定向或自动重试；生产接入仍由 D-014 决定。
-- 编辑授权契约使用三种应用角色和四项最小权限；`external-oidc` 在真实适配器完成前始终不可用，本地 token 不是生产身份。
+- 编辑授权契约使用三种应用角色和四项最小权限；`external-oidc` 已有真实 handler，但只有完整配置才启用，且尚未经过真实 OAuth/PostgreSQL 验证。本地 token 不是生产身份。
 
 ## Technology decisions still pending
 
 - 生产数据库、队列/定时任务、缓存和对象存储；M2.1 的本地迁移不关闭这些决策。
 - 生产 GitHub 身份、刷新频率、条件请求、后台任务和数据保留策略。
-- 外部 OIDC 供应商、数据库会话实现、账号生命周期、角色管理与普通用户反作弊方案。
+- GitHub OAuth App/预览环境实测、账号生命周期、角色操作工具与普通用户反作弊方案。
 - 托管区域、CDN、监控、备份和恢复目标。
 - Newsletter、分析与后续支付供应商及预算。

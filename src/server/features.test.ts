@@ -60,6 +60,39 @@ describe("runtime feature configuration", () => {
     });
   });
 
+  it("enables external identity only with a complete HTTPS production configuration", () => {
+    expect(getRuntimeConfiguration({
+      NODE_ENV: "production",
+      VIBESOURCE_SUBMISSION_MODE: "local",
+      VIBESOURCE_DB_PATH: "/tmp/vibesource-test.sqlite",
+      VIBESOURCE_EDITOR_IDENTITY_MODE: "external-oidc",
+      DATABASE_URL: "postgresql://app:secret@db.example.com/vibesource",
+      BETTER_AUTH_URL: "https://vibesource.example.com",
+      BETTER_AUTH_SECRET: "a-production-secret-that-is-long-enough",
+      GITHUB_CLIENT_ID: "github-client",
+      GITHUB_CLIENT_SECRET: "github-secret",
+    })).toMatchObject({
+      editorIdentityMode: "external-oidc",
+      editorAvailable: true,
+      editorRole: null,
+      productionAuth: {
+        baseUrl: "https://vibesource.example.com/",
+      },
+    });
+
+    expect(getRuntimeConfiguration({
+      NODE_ENV: "production",
+      VIBESOURCE_SUBMISSION_MODE: "local",
+      VIBESOURCE_DB_PATH: "/tmp/vibesource-test.sqlite",
+      VIBESOURCE_EDITOR_IDENTITY_MODE: "external-oidc",
+      DATABASE_URL: "postgresql://app:secret@db.example.com/vibesource",
+      BETTER_AUTH_URL: "http://vibesource.example.com",
+      BETTER_AUTH_SECRET: "a-production-secret-that-is-long-enough",
+      GITHUB_CLIENT_ID: "github-client",
+      GITHUB_CLIENT_SECRET: "github-secret",
+    }).editorAvailable).toBe(false);
+  });
+
   it("requires an explicit live switch and a complete editor boundary for GitHub evidence", () => {
     const base = {
       VIBESOURCE_SUBMISSION_MODE: "local",
