@@ -216,8 +216,8 @@ export function SubmissionForm() {
           <div><dt>外部证据</dt><dd>尚未检查</dd></div>
         </dl>
         <p>
-          这条记录已经真实写入本地审核库，但尚未检查 GitHub 仓库公开性、
-          许可证或体验入口，也不会自动出现在公开目录。
+          这条记录已经真实写入本地审核库，但 GitHub、Demo 和许可证资格尚未自动检查，
+          也不会自动出现在公开目录。
         </p>
         <div className="submissionSuccess__actions">
           <button

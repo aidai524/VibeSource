@@ -7,7 +7,7 @@ export interface CreateDatabaseOptions {
   path?: PathLike;
 }
 
-export const DATABASE_SCHEMA_VERSION = 2;
+export const DATABASE_SCHEMA_VERSION = 3;
 
 const migrations = [
   {
@@ -158,6 +158,71 @@ const migrations = [
       BEFORE DELETE ON github_evidence_attempts
       BEGIN
         SELECT RAISE(ABORT, 'github evidence attempts are append-only');
+      END;
+    `,
+  },
+  {
+    version: 3,
+    name: "create_append_only_demo_evidence_attempts",
+    sql: `
+      CREATE TABLE demo_evidence_attempts (
+        id TEXT PRIMARY KEY NOT NULL,
+        submission_id TEXT NOT NULL,
+        actor TEXT NOT NULL,
+        outcome TEXT NOT NULL CHECK (outcome IN ('success', 'error')),
+        source_url TEXT NOT NULL,
+        check_version TEXT NOT NULL,
+        observed_at TEXT NOT NULL,
+        method TEXT NOT NULL CHECK (method = 'GET'),
+        http_status INTEGER CHECK (http_status IS NULL OR http_status BETWEEN 100 AND 599),
+        content_type TEXT,
+        resolved_address TEXT,
+        resolved_family INTEGER CHECK (resolved_family IS NULL OR resolved_family IN (4, 6)),
+        response_time_ms INTEGER CHECK (response_time_ms IS NULL OR response_time_ms >= 0),
+        error_code TEXT CHECK (
+          error_code IS NULL OR error_code IN (
+            'dns_resolution_failed',
+            'unsafe_address',
+            'timeout',
+            'tls_error',
+            'network_error',
+            'redirect_blocked',
+            'http_error',
+            'invalid_response'
+          )
+        ),
+        error_message TEXT,
+        FOREIGN KEY (submission_id) REFERENCES submissions (id) ON DELETE RESTRICT,
+        CHECK (
+          (
+            outcome = 'success'
+            AND http_status BETWEEN 200 AND 299
+            AND resolved_address IS NOT NULL
+            AND resolved_family IS NOT NULL
+            AND response_time_ms IS NOT NULL
+            AND error_code IS NULL
+            AND error_message IS NULL
+          ) OR (
+            outcome = 'error'
+            AND error_code IS NOT NULL
+            AND error_message IS NOT NULL
+          )
+        )
+      ) STRICT;
+
+      CREATE INDEX demo_evidence_attempts_submission_observed_at_index
+        ON demo_evidence_attempts (submission_id, observed_at DESC, id DESC);
+
+      CREATE TRIGGER demo_evidence_attempts_no_update
+      BEFORE UPDATE ON demo_evidence_attempts
+      BEGIN
+        SELECT RAISE(ABORT, 'demo evidence attempts are append-only');
+      END;
+
+      CREATE TRIGGER demo_evidence_attempts_no_delete
+      BEFORE DELETE ON demo_evidence_attempts
+      BEGIN
+        SELECT RAISE(ABORT, 'demo evidence attempts are append-only');
       END;
     `,
   },

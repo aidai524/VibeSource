@@ -3,6 +3,10 @@
 import { useState, type FormEvent } from "react";
 
 import type {
+  DemoEvidenceAttempt,
+  DemoEvidenceView,
+} from "@/domain/demo-evidence";
+import type {
   GitHubEvidenceAttempt,
   GitHubEvidenceView,
 } from "@/domain/github-evidence";
@@ -22,12 +26,14 @@ type PendingSubmission = {
   readonly reuseNotes: string;
   readonly createdAt: string;
   readonly githubEvidence: GitHubEvidenceView;
+  readonly demoEvidence: DemoEvidenceView;
 };
 
 type QueueResponse = {
   readonly items?: readonly PendingSubmission[];
   readonly capabilities?: {
     readonly githubEvidenceRefresh?: boolean;
+    readonly demoEvidenceRefresh?: boolean;
   };
   readonly message?: string;
 };
@@ -36,6 +42,7 @@ type ReviewCardProps = {
   readonly submission: PendingSubmission;
   readonly token: string;
   readonly githubEvidenceRefreshAvailable: boolean;
+  readonly demoEvidenceRefreshAvailable: boolean;
   readonly onRejected: (id: string, message: string) => void;
   readonly onStatus: (message: string) => void;
 };
@@ -45,6 +52,112 @@ function formatDate(value: string): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function DemoSnapshot({ attempt }: { readonly attempt: DemoEvidenceAttempt }) {
+  if (attempt.outcome !== "success") return null;
+  return (
+    <div className="githubEvidence__snapshot">
+      <p className="githubEvidence__provenance">
+        当前时点响应头 · {formatDate(attempt.observedAt)} · {attempt.checkVersion}
+      </p>
+      <dl className="githubEvidence__facts">
+        <div><dt>HTTP</dt><dd>{attempt.httpStatus}</dd></div>
+        <div><dt>请求方法</dt><dd>{attempt.method}</dd></div>
+        <div><dt>响应耗时</dt><dd>{number(attempt.responseTimeMs)} ms</dd></div>
+        <div><dt>固定公网地址</dt><dd>{attempt.resolvedAddress} / IPv{attempt.resolvedFamily}</dd></div>
+        <div className="githubEvidence__factWide"><dt>Content-Type</dt><dd>{attempt.contentType ?? "未提供"}</dd></div>
+      </dl>
+      <p className="githubEvidence__rate">
+        <a href={attempt.sourceUrl} target="_blank" rel="noreferrer">打开开发者提交的体验地址</a>
+      </p>
+    </div>
+  );
+}
+
+function DemoEvidencePanel({
+  submissionId,
+  initialEvidence,
+  token,
+  refreshAvailable,
+  onStatus,
+}: {
+  readonly submissionId: string;
+  readonly initialEvidence: DemoEvidenceView;
+  readonly token: string;
+  readonly refreshAvailable: boolean;
+  readonly onStatus: (message: string) => void;
+}) {
+  const [evidence, setEvidence] = useState(initialEvidence);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [requestError, setRequestError] = useState("");
+  const latestFailure = evidence.latestAttempt?.outcome === "error" ? evidence.latestAttempt : null;
+  const usable = evidence.latestUsableAttempt;
+  const stateLabel = {
+    not_checked: "尚未请求",
+    observed: "已响应",
+    stale: "旧快照",
+    error: "验证失败",
+  }[evidence.state];
+
+  async function refresh() {
+    setIsRefreshing(true);
+    setRequestError("");
+    onStatus("正在请求并保存 Demo 当前时点响应头证据…");
+    try {
+      const response = await fetch(
+        `/api/editor/submissions/${encodeURIComponent(submissionId)}/demo-evidence/refresh`,
+        { method: "POST", headers: { "x-vibesource-editor-token": token } },
+      );
+      const payload = await response.json() as { readonly demoEvidence?: DemoEvidenceView; readonly message?: string };
+      if (!response.ok || !payload.demoEvidence) {
+        const message = payload.message ?? "Demo 证据验证请求失败。";
+        setRequestError(message);
+        onStatus(message);
+        return;
+      }
+      setEvidence(payload.demoEvidence);
+      onStatus(payload.message ?? "Demo 证据状态已更新。");
+    } catch {
+      const message = "无法连接审核服务，本次 Demo 尝试没有保存。";
+      setRequestError(message);
+      onStatus(message);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
+
+  return (
+    <section className="githubEvidence" aria-labelledby={`demo-evidence-${submissionId}`} aria-busy={isRefreshing}>
+      <div className="githubEvidence__header">
+        <div><p className="eyebrow">DEMO / RESPONSE HEADERS</p><h3 id={`demo-evidence-${submissionId}`}>Demo 可用性证据</h3></div>
+        <span className={`evidenceState evidenceState--${evidence.state}`}>{stateLabel}</span>
+      </div>
+      {evidence.state === "not_checked" ? (
+        <p className="githubEvidence__empty">尚未请求体验地址；链接仍是开发者声明。</p>
+      ) : null}
+      {latestFailure ? (
+        <div className="githubEvidence__failure" role="status">
+          <strong>{evidence.state === "stale" ? "最新验证失败，下面保留的是旧快照。" : "没有可用的 Demo 快照。"}</strong>
+          <p>{latestFailure.errorMessage} · {formatDate(latestFailure.observedAt)} · {latestFailure.errorCode}{latestFailure.httpStatus ? ` · HTTP ${latestFailure.httpStatus}` : ""}</p>
+        </div>
+      ) : null}
+      {usable ? <DemoSnapshot attempt={usable} /> : null}
+      <div className="githubEvidence__action">
+        <p>
+          {refreshAvailable
+            ? "每次点击只发起一次固定到已验证公网 IP 的 HTTPS GET，收到响应头后停止；不跟随跳转，不读取正文，也不会批准或发布。"
+            : "当前环境没有启用实时验证；页面不会伪装请求或自动访问体验地址。"}
+        </p>
+        {refreshAvailable ? (
+          <button className="button button--outline" type="button" onClick={refresh} disabled={isRefreshing}>
+            {isRefreshing ? "验证 Demo（请求中…）" : evidence.state === "not_checked" ? "请求并保存 Demo 响应头" : "重新验证 Demo"}
+          </button>
+        ) : null}
+      </div>
+      {requestError ? <p className="formField__error" role="alert">{requestError}</p> : null}
+    </section>
+  );
 }
 
 function ClaimRow({ label, value }: { readonly label: string; readonly value: string }) {
@@ -196,7 +309,7 @@ function GitHubEvidencePanel({
   );
 }
 
-function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, onRejected, onStatus }: ReviewCardProps) {
+function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, demoEvidenceRefreshAvailable, onRejected, onStatus }: ReviewCardProps) {
   const [reason, setReason] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
   const [error, setError] = useState("");
@@ -244,7 +357,7 @@ function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, onRejec
 
       <div className="evidenceWarning">
         <strong>整体仍未核验</strong>
-        <p>GitHub 时点证据不能替代 Demo 可用性、许可证法律判断和人工审核，不能据此批准发布。</p>
+        <p>GitHub 与 Demo 时点证据不能替代许可证法律判断和人工审核，不能据此批准发布。</p>
       </div>
 
       <GitHubEvidencePanel
@@ -255,6 +368,14 @@ function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, onRejec
         onStatus={onStatus}
       />
 
+      <DemoEvidencePanel
+        submissionId={submission.id}
+        initialEvidence={submission.demoEvidence}
+        token={token}
+        refreshAvailable={demoEvidenceRefreshAvailable}
+        onStatus={onStatus}
+      />
+
       <dl className="claimList">
         <ClaimRow label="产品简介" value={submission.summary} />
         <div className="claimRow">
@@ -262,7 +383,7 @@ function ReviewCard({ submission, token, githubEvidenceRefreshAvailable, onRejec
           <dd><a href={submission.repositoryUrl} target="_blank" rel="noreferrer">{submission.repositoryUrl}</a></dd>
         </div>
         <div className="claimRow">
-          <dt>体验路径<span>外部未检查</span></dt>
+          <dt>体验路径<span>开发者提交地址</span></dt>
           <dd><a href={submission.experienceUrl} target="_blank" rel="noreferrer">{submission.experienceUrl}</a></dd>
         </div>
         <ClaimRow label="AI 参与" value={submission.aiInvolvement} />
@@ -306,6 +427,7 @@ export function ReviewConsole() {
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [githubEvidenceRefreshAvailable, setGitHubEvidenceRefreshAvailable] = useState(false);
+  const [demoEvidenceRefreshAvailable, setDemoEvidenceRefreshAvailable] = useState(false);
 
   async function loadQueue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -329,6 +451,9 @@ export function ReviewConsole() {
       setItems(payload.items);
       setGitHubEvidenceRefreshAvailable(
         payload.capabilities?.githubEvidenceRefresh === true,
+      );
+      setDemoEvidenceRefreshAvailable(
+        payload.capabilities?.demoEvidenceRefresh === true,
       );
       setStatusMessage(`审核队列已载入，共 ${payload.items.length} 条待审核记录。`);
     } catch {
@@ -382,6 +507,7 @@ export function ReviewConsole() {
                 submission={submission}
                 token={token}
                 githubEvidenceRefreshAvailable={githubEvidenceRefreshAvailable}
+                demoEvidenceRefreshAvailable={demoEvidenceRefreshAvailable}
                 onStatus={setStatusMessage}
                 onRejected={(id, message) => {
                   setItems((current) => current?.filter((item) => item.id !== id) ?? []);

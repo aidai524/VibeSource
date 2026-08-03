@@ -5,6 +5,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  DEMO_EVIDENCE_CHECK_VERSION,
+  type DemoEvidenceFailure,
+  type DemoEvidenceSuccess,
+} from "@/domain/demo-evidence";
+import {
   GITHUB_API_VERSION,
   type GitHubEvidenceFailure,
   type GitHubEvidenceSuccess,
@@ -77,6 +82,36 @@ const githubFailure: GitHubEvidenceFailure = {
   repository: null,
   errorCode: "rate_limited",
   errorMessage: "GitHub API rate limit was reached. No repository snapshot was saved.",
+};
+
+const demoSuccess: DemoEvidenceSuccess = {
+  outcome: "success",
+  sourceUrl: "https://demo.example.com/try",
+  checkVersion: DEMO_EVIDENCE_CHECK_VERSION,
+  observedAt: "2026-08-03T04:00:00.000Z",
+  method: "GET",
+  httpStatus: 200,
+  contentType: "text/html; charset=utf-8",
+  resolvedAddress: "93.184.216.34",
+  resolvedFamily: 4,
+  responseTimeMs: 81,
+  errorCode: null,
+  errorMessage: null,
+};
+
+const demoFailure: DemoEvidenceFailure = {
+  outcome: "error",
+  sourceUrl: "https://demo.example.com/try",
+  checkVersion: DEMO_EVIDENCE_CHECK_VERSION,
+  observedAt: "2026-08-03T05:00:00.000Z",
+  method: "GET",
+  httpStatus: 302,
+  contentType: "text/html",
+  resolvedAddress: "93.184.216.34",
+  resolvedFamily: 4,
+  responseTimeMs: 42,
+  errorCode: "redirect_blocked",
+  errorMessage: "The Demo returned HTTP 302; redirects are not followed.",
 };
 
 function setupRepository(): {
@@ -462,6 +497,48 @@ describe("SubmissionRepository", () => {
         .get()?.count,
     ).toBe(0);
   });
+
+  it("stores Demo attempts append-only without changing submission state", () => {
+    const { database, repository } = setupRepository();
+    const pending = repository.createSubmission(validInput, "submission-request-demo-0001");
+    const view = repository.recordDemoEvidenceAttempt(pending.id, "qa-editor", demoSuccess);
+    expect(view).toMatchObject({
+      state: "observed",
+      latestAttempt: { outcome: "success", httpStatus: 200, resolvedAddress: "93.184.216.34" },
+    });
+    expect(repository.getSubmission(pending.id)).toEqual(pending);
+    expect(repository.listReviewEvents(pending.id)).toHaveLength(1);
+    expect(() => database.exec(
+      "UPDATE demo_evidence_attempts SET actor = 'tampered' WHERE submission_id = '" + pending.id + "'",
+    )).toThrow(/append-only/);
+    expect(() => database.exec(
+      "DELETE FROM demo_evidence_attempts WHERE submission_id = '" + pending.id + "'",
+    )).toThrow(/append-only/);
+  });
+
+  it("keeps the last usable Demo snapshot when the latest attempt fails", () => {
+    const { repository } = setupRepository();
+    const pending = repository.createSubmission(validInput, "submission-request-demo-0002");
+    repository.recordDemoEvidenceAttempt(pending.id, "qa-editor", demoSuccess);
+    const view = repository.recordDemoEvidenceAttempt(pending.id, "qa-editor", demoFailure);
+    expect(view).toMatchObject({
+      state: "stale",
+      latestAttempt: { outcome: "error", errorCode: "redirect_blocked", httpStatus: 302 },
+      latestUsableAttempt: { outcome: "success", responseTimeMs: 81 },
+    });
+  });
+
+  it("does not attach Demo evidence after rejection", () => {
+    const { database, repository } = setupRepository();
+    const pending = repository.createSubmission(validInput, "submission-request-demo-0003");
+    repository.rejectSubmission(pending.id, {
+      actor: "qa-editor",
+      reason: "This fixture is complete and should leave the pending queue.",
+      expectedVersion: 1,
+    });
+    expect(() => repository.recordDemoEvidenceAttempt(pending.id, "qa-editor", demoSuccess)).toThrow(SubmissionStateError);
+    expect(database.prepare("SELECT COUNT(*) AS count FROM demo_evidence_attempts").get()?.count).toBe(0);
+  });
 });
 
 describe("database lifecycle", () => {
@@ -475,11 +552,11 @@ describe("database lifecycle", () => {
     expect(
       database.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()
         ?.count,
-    ).toBe(2);
+    ).toBe(3);
     expect(
       database.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()
         ?.version,
-    ).toBe(2);
+    ).toBe(3);
     expect(database.prepare("PRAGMA foreign_keys").get()?.foreign_keys).toBe(1);
     expect(database.prepare("PRAGMA busy_timeout").get()?.timeout).toBe(2000);
     expect(database.prepare("PRAGMA journal_mode").get()?.journal_mode).not.toBe(
@@ -512,7 +589,7 @@ describe("database lifecycle", () => {
         reopened
           .prepare("SELECT COUNT(*) AS count FROM schema_migrations")
           .get()?.count,
-      ).toBe(2);
+      ).toBe(3);
     } finally {
       reopened?.close();
       rmSync(temporaryDirectory, { recursive: true, force: true });

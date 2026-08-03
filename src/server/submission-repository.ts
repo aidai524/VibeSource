@@ -2,6 +2,14 @@ import { createHash, randomUUID } from "node:crypto";
 import type { SQLOutputValue } from "node:sqlite";
 
 import {
+  DEMO_EVIDENCE_CHECK_VERSION,
+  EMPTY_DEMO_EVIDENCE,
+  type DemoEvidenceAttempt,
+  type DemoEvidenceErrorCode,
+  type DemoEvidenceResult,
+  type DemoEvidenceView,
+} from "@/domain/demo-evidence";
+import {
   EMPTY_GITHUB_EVIDENCE,
   GITHUB_API_VERSION,
   type GitHubEvidenceAttempt,
@@ -224,6 +232,70 @@ function mapGitHubEvidenceAttempt(row: SqlRow): GitHubEvidenceAttempt {
   };
 }
 
+function demoEvidenceErrorCode(value: string): DemoEvidenceErrorCode {
+  if (
+    value === "dns_resolution_failed" ||
+    value === "unsafe_address" ||
+    value === "timeout" ||
+    value === "tls_error" ||
+    value === "network_error" ||
+    value === "redirect_blocked" ||
+    value === "http_error" ||
+    value === "invalid_response"
+  ) return value;
+  throw new Error(`Database contains unsupported Demo error code: ${value}.`);
+}
+
+function mapDemoEvidenceAttempt(row: SqlRow): DemoEvidenceAttempt {
+  const checkVersion = requiredText(row, "check_version");
+  if (checkVersion !== DEMO_EVIDENCE_CHECK_VERSION) {
+    throw new Error(`Database contains unsupported Demo check version: ${checkVersion}.`);
+  }
+  const method = requiredText(row, "method");
+  if (method !== "GET") throw new Error(`Database contains unsupported Demo method: ${method}.`);
+  const base = {
+    id: requiredText(row, "id"),
+    submissionId: requiredText(row, "submission_id"),
+    actor: requiredText(row, "actor"),
+    sourceUrl: requiredText(row, "source_url"),
+    checkVersion: DEMO_EVIDENCE_CHECK_VERSION,
+    observedAt: requiredText(row, "observed_at"),
+    method,
+    httpStatus: nullableNumber(row, "http_status"),
+    contentType: nullableText(row, "content_type"),
+    resolvedAddress: nullableText(row, "resolved_address"),
+    resolvedFamily: nullableNumber(row, "resolved_family"),
+    responseTimeMs: nullableNumber(row, "response_time_ms"),
+  } as const;
+  const outcome = requiredText(row, "outcome");
+  if (outcome === "error") {
+    return {
+      ...base,
+      outcome,
+      resolvedFamily: base.resolvedFamily as 4 | 6 | null,
+      errorCode: demoEvidenceErrorCode(requiredText(row, "error_code")),
+      errorMessage: requiredText(row, "error_message"),
+    };
+  }
+  if (outcome !== "success") throw new Error(`Database contains unsupported Demo outcome: ${outcome}.`);
+  if (
+    base.httpStatus === null ||
+    base.resolvedAddress === null ||
+    (base.resolvedFamily !== 4 && base.resolvedFamily !== 6) ||
+    base.responseTimeMs === null
+  ) throw new Error("Database contains an incomplete Demo success attempt.");
+  return {
+    ...base,
+    outcome,
+    httpStatus: base.httpStatus,
+    resolvedAddress: base.resolvedAddress,
+    resolvedFamily: base.resolvedFamily,
+    responseTimeMs: base.responseTimeMs,
+    errorCode: null,
+    errorMessage: null,
+  };
+}
+
 function hashIdempotencyKey(key: string): string {
   return createHash("sha256").update(key, "utf8").digest("hex");
 }
@@ -291,6 +363,24 @@ const githubEvidenceColumns = `
   license_name,
   license_spdx_id,
   license_url
+`;
+
+const demoEvidenceColumns = `
+  id,
+  submission_id,
+  actor,
+  outcome,
+  source_url,
+  check_version,
+  observed_at,
+  method,
+  http_status,
+  content_type,
+  resolved_address,
+  resolved_family,
+  response_time_ms,
+  error_code,
+  error_message
 `;
 
 export class SubmissionRepository {
@@ -586,6 +676,77 @@ export class SubmissionRepository {
           : latestUsableAttempt === null
             ? "error"
             : "stale",
+      latestAttempt,
+      latestUsableAttempt,
+    };
+  }
+
+  recordDemoEvidenceAttempt(
+    submissionId: string,
+    actor: string,
+    result: DemoEvidenceResult,
+  ): DemoEvidenceView {
+    const normalizedId = normalizeBoundedString(submissionId, "submissionId", { min: 1, max: 128 });
+    const normalizedActor = normalizeBoundedString(actor, "actor", REVIEW_ACTOR_LIMITS);
+    const attemptId = this.generateId();
+
+    this.database.exec("BEGIN IMMEDIATE");
+    try {
+      const submission = this.getSubmission(normalizedId);
+      if (submission === null) throw new SubmissionNotFoundError(normalizedId);
+      if (submission.status !== "pending_review") {
+        throw new SubmissionStateError("Demo evidence can only be refreshed for a pending submission.");
+      }
+      this.database.prepare(`
+        INSERT INTO demo_evidence_attempts (
+          id, submission_id, actor, outcome, source_url, check_version,
+          observed_at, method, http_status, content_type, resolved_address,
+          resolved_family, response_time_ms, error_code, error_message
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        attemptId,
+        normalizedId,
+        normalizedActor,
+        result.outcome,
+        result.sourceUrl,
+        result.checkVersion,
+        result.observedAt,
+        result.method,
+        result.httpStatus,
+        result.contentType,
+        result.resolvedAddress,
+        result.resolvedFamily,
+        result.responseTimeMs,
+        result.errorCode,
+        result.errorMessage,
+      );
+      this.database.exec("COMMIT");
+    } catch (error) {
+      rollback(this.database);
+      throw error;
+    }
+    return this.getDemoEvidence(normalizedId);
+  }
+
+  getDemoEvidence(submissionId: string): DemoEvidenceView {
+    const normalizedId = normalizeBoundedString(submissionId, "submissionId", { min: 1, max: 128 });
+    const queryLatest = (successOnly: boolean): DemoEvidenceAttempt | null => {
+      const row = this.database.prepare(`
+        SELECT ${demoEvidenceColumns}
+        FROM demo_evidence_attempts
+        WHERE submission_id = ?${successOnly ? " AND outcome = 'success'" : ""}
+        ORDER BY observed_at DESC, rowid DESC
+        LIMIT 1
+      `).get(normalizedId);
+      return row === undefined ? null : mapDemoEvidenceAttempt(row);
+    };
+    const latestAttempt = queryLatest(false);
+    if (latestAttempt === null) return EMPTY_DEMO_EVIDENCE;
+    const latestUsableAttempt = queryLatest(true);
+    return {
+      state: latestAttempt.outcome === "success"
+        ? "observed"
+        : latestUsableAttempt === null ? "error" : "stale",
       latestAttempt,
       latestUsableAttempt,
     };

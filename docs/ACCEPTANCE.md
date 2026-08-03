@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | A-001 | 新贡献者可以启动项目 | 在干净本地环境按 README 的真实命令完成安装、启动和测试；空状态首页与健康检查可访问 | `outputs/verification/A-001/`：干净副本记录、测试/构建结果、健康响应和桌面/移动截图 | Verified |
 | A-101 | 开发者能提交合格产品 | 提交公开仓库、体验入口、AI 说明和复用信息后，产生唯一待审核记录和明确状态 | `outputs/verification/M2-1/`：自动化、浏览器提交、API/数据库与重启证据 | Partially verified — local candidate only |
-| A-102 | 不合格产品不会误发布 | 私有/不可达仓库、缺少体验路径或必填信息时显示具体原因，公开目录中不存在该产品 | `outputs/verification/M2-1/` 与 `M2-2a/`：字段失败、真实 GitHub 404 和无发布路径；Demo/资格政策待补 | Partially verified — GitHub path only |
+| A-102 | 不合格产品不会误发布 | 私有/不可达仓库、缺少体验路径或必填信息时显示具体原因，公开目录中不存在该产品 | M2.1/M2.2a/M2.2b1：字段失败、GitHub 404、Demo 保留地址/重定向失败和无发布路径；资格政策待补 | Partially verified — local evidence only |
 | A-103 | GitHub 数据可追溯 | 产品记录包含来源、抓取时间、成功/失败状态；模拟限流后旧数据标 stale 而非伪装成最新 | `outputs/verification/M2-2a/`：真实 200/404、限流 fixture、追加存储与 stale 断言 | Partially verified — local manual refresh |
 | A-104 | 发布保持人工控制 | 自动检查通过后仍为待审核；只有授权编辑确认才能发布，拒绝/覆盖含操作者、时间和理由 | `outputs/verification/M2-1/`：本地 token、服务端 actor、版本冲突、原子拒绝与浏览器审计；生产身份/批准待验证 | Partially verified — local reject only |
 | A-105 | 产品页支持体验、验证和复用判断 | 已发布页显示 Demo/部署入口、源码、AI 参与、技术栈、许可证、二开说明和每项验证状态 | 浏览器断言、截图 | Not run |
@@ -21,7 +21,7 @@
 | A-108 | Newsletter 尊重同意 | 明示订阅后才可进入收件人集合；退订立即阻止后续发送；真正发送前需要编辑确认 | 同意记录、供应商测试环境证据 | Not run |
 | A-109 | 指标不会冒充已验证事实 | GitHub 指标显示来源和时间；用户量/收入等显示自述、证据或未验证，缺失时不生成假值 | `outputs/verification/M2-2a/`：真实 GitHub 指标、来源/时间/限流与失败展示；其他指标待补 | Partially verified — GitHub only |
 | A-110 | 付费推广透明且受控 | 服务范围和金额在请求前显示并确认；赞助位明确标识，支付失败不显示已付款，也不改变自然榜单 | 支付测试环境、UI/排名断言 | Not run |
-| A-111 | 外部失败可见且可恢复 | GitHub、Demo、邮件或后台刷新失败不会破坏既有公开记录；用户/编辑看到错误并能安全重试 | `outputs/verification/M2-2a/`：GitHub 404/network/rate-limit/timeout、stale 保留与重新刷新 | Partially verified — GitHub adapter only |
+| A-111 | 外部失败可见且可恢复 | GitHub、Demo、邮件或后台刷新失败不会破坏既有公开记录；用户/编辑看到错误并能安全重试 | `outputs/verification/M2-2a/` 与 `M2-2b1/`：结构化失败、stale 保留与重新刷新 | Partially verified — local GitHub and Demo adapters |
 | A-112 | 首发目录有真实供给 | 上线前存在 50–100 个逐项人工检查的真实产品，每个都有仓库、体验路径、许可证状态和审核记录 | 首发清单、抽样复核记录 | Not run |
 
 ## M2.1 验证边界
@@ -43,6 +43,13 @@
 - 限流、超时、网络失败、错误响应、单次无重试和成功后失败保留旧快照由确定性测试覆盖。
 - A-103、A-109 和 A-111 仅部分验证：没有生产身份、后台刷新、Demo 证据、公开产品或生产数据保留策略。
 - GitHub 的许可证字段只表示 GitHub Licensee 检测到已知许可证文件，不是法律有效性或产品可复用资格判断。
+
+## M2.2b1 验证边界
+
+- 已实现范围：本地编辑显式触发一次 Demo HTTPS GET；解析全部地址并拒绝任何非公网结果，固定请求 IP，禁止重定向，收到响应头后停止且不读取正文。
+- 当前证据：`npm run check` 通过，包括 8 个文件中的 81 个测试和 production build。隔离浏览器中 `https://1.1.1.1/cdn-cgi/trace` 返回 HTTP 200；`example.com` 在当前 QA 网络解析到保留网段而被拒绝；`https://1.1.1.1/` 的 301 被明确拦截。
+- 浏览器刷新后 200 快照仍存在，整体状态仍为 `not_checked`，页面无横向溢出且无 console warning/error。确定性测试覆盖 timeout/TLS/network/DNS、混合安全/非安全地址、追加约束和 stale 保留。
+- A-102 与 A-111 仍为部分验证：这是本地手动时点证据，不证明持续可用、页面内容安全、部署成功、生产网络控制、公开产品或生产保留策略。
 
 ## Release blockers
 

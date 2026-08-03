@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | M0 — 产品与可信机制基线 | 产品边界、非目标、数据真相源、人工控制和验收条件明确；待定政策有清单 | None | 文档确认 | Completed |
 | M1 — 可运行基础 | 技术栈与托管约束已决定；Git 仓库、安装/启动/测试命令和空状态应用在干净本地环境通过 | M0 | A-001 | Completed / Verified |
-| M2 — 可信提交与人工审核 | 开发者提交、GitHub 证据、错误状态、审核审计和发布资格形成真实纵向闭环 | M1 | A-101–A-105, A-109, A-111 | In progress — M2.1 + M2.2a implemented |
+| M2 — 可信提交与人工审核 | 开发者提交、GitHub/Demo 证据、错误状态、审核审计和发布资格形成真实纵向闭环 | M1 | A-101–A-105, A-109, A-111 | In progress — M2.1 + M2.2a + M2.2b1 implemented |
 | M3 — 发现与社区 | 分类、每日榜单、点赞和评论在明确身份、排序和反作弊规则下可用 | M2 | A-106, A-107 | Planned |
 | M4 — 首发供给与分发 | 50–100 个真实产品完成核验；Newsletter 明示订阅、退订和人工发送可验证 | M2 | A-108, A-112 | Planned |
 | M5 — 首个商业验证 | 在自然发现成立后，小规模验证一个透明赞助/首发服务，费用和标记全程可见 | M3, M4 | A-110 | Planned |
@@ -31,7 +31,8 @@
 
 - **M2.1 — 本地候选与拒绝审计（Implemented, locally verified）**：默认失效关闭；8 项服务端校验资料原子写入 `pending_review` 和 `submitted` 事件；本地编辑只能带 actor、理由和版本拒绝。当前 lint、typecheck、41 个自动化测试、production build、隔离浏览器闭环和重启持久化均已通过；这仍不是生产能力。
 - **M2.2a — 本地 GitHub 时点证据（Implemented, locally verified）**：显式一次请求公开 GitHub API；追加保存来源、版本、时间、指标、许可证检测、限流和失败；最后成功快照与最近失败分离。真实 200/404、持久化和模拟限流/stale 已验证；无 Token、自动抓取或发布资格。
-- **M2.2b — Demo 证据、许可证政策与生产身份（Next）**：定义受控 Demo 检查、许可证资格和生产编辑权限；决定生产 GitHub 身份/限流方案。在此之前不实现 approve/publish。
+- **M2.2b1 — 本地 Demo 响应头证据（Implemented, locally verified）**：显式一次固定公网 IP 的 HTTPS GET；禁止重定向并在响应头后停止；追加保存成功/失败和 stale 语义。真实 200、保留地址拒绝、301 拦截和持久化已验证。
+- **M2.2b2 — 许可证政策与生产身份（Next）**：定义许可证资格和生产编辑权限；决定生产 GitHub 身份/限流方案。在此之前不实现 approve/publish。
 - **M2 exit**：只有在可追溯外部证据、人工批准、公开产品和失败恢复完成后，才能把 M2 标为 Completed。
 
 ## Sequencing rules

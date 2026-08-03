@@ -20,12 +20,14 @@ export function GET(request: Request) {
     const items = repository.listPending().map((submission) => ({
       ...submission,
       githubEvidence: repository.getGitHubEvidence(submission.id),
+      demoEvidence: repository.getDemoEvidence(submission.id),
     }));
     return Response.json(
       {
         items,
         capabilities: {
           githubEvidenceRefresh: configuration.githubEvidenceAvailable,
+          demoEvidenceRefresh: configuration.demoEvidenceAvailable,
         },
       },
       { headers: { "cache-control": "no-store" } },

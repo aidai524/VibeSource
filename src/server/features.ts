@@ -2,6 +2,7 @@ import path from "node:path";
 
 export type SubmissionMode = "disabled" | "local";
 export type GitHubEvidenceMode = "disabled" | "live";
+export type DemoEvidenceMode = "disabled" | "live";
 
 export type RuntimeConfiguration = {
   readonly mode: SubmissionMode;
@@ -9,6 +10,8 @@ export type RuntimeConfiguration = {
   readonly editorAvailable: boolean;
   readonly githubEvidenceMode: GitHubEvidenceMode;
   readonly githubEvidenceAvailable: boolean;
+  readonly demoEvidenceMode: DemoEvidenceMode;
+  readonly demoEvidenceAvailable: boolean;
   readonly databasePath: string | null;
   readonly editorToken: string | null;
   readonly editorId: string | null;
@@ -41,6 +44,10 @@ export function getRuntimeConfiguration(
     editorId !== null;
   const githubEvidenceAvailable =
     editorAvailable && githubEvidenceMode === "live";
+  const demoEvidenceMode = environment.VIBESOURCE_DEMO_EVIDENCE_MODE === "live"
+    ? "live"
+    : "disabled";
+  const demoEvidenceAvailable = editorAvailable && demoEvidenceMode === "live";
 
   let unavailableReason: string | null = null;
   if (mode !== "local") {
@@ -56,6 +63,8 @@ export function getRuntimeConfiguration(
     editorAvailable,
     githubEvidenceMode,
     githubEvidenceAvailable,
+    demoEvidenceMode,
+    demoEvidenceAvailable,
     databasePath,
     editorToken,
     editorId,

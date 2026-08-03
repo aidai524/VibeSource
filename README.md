@@ -1,6 +1,6 @@
 # VibeSource
 
-> Status: M2 in progress · M2.2a local GitHub evidence slice implemented · Architecture profile: standard
+> Status: M2 in progress · M2.2b1 local Demo evidence slice implemented · Architecture profile: standard
 
 VibeSource 是一个专门发现和发布 AI 原生开源产品的平台。开发者可以获得首发与持续流量；用户可以直接体验产品、查看源码、判断 AI 的参与方式，并基于许可证与部署说明复用成果。
 
@@ -43,9 +43,9 @@ npm run build
 npm run start
 ```
 
-当前代码已通过 `npm run check`（53 项测试与 production build）。M2.1 与 M2.2a 的浏览器、持久化和失败证据分别见 `outputs/verification/M2-1/` 与 `outputs/verification/M2-2a/`；生产托管环境仍未选择或验证。
+当前代码已通过 `npm run check`（81 项测试与 production build）。M2.1、M2.2a 与 M2.2b1 的证据分别见 `outputs/verification/M2-1/`、`outputs/verification/M2-2a/` 与 `outputs/verification/M2-2b1/`；生产托管环境仍未选择或验证。
 
-默认运行仍是有意保留的失败关闭状态：`VIBESOURCE_SUBMISSION_MODE` 未显式设为 `local` 时，页面和 API 都不会接收提交。M2.2a 增加了由本地编辑明确触发的公开 GitHub 仓库时点证据，但没有批准、发布、公开产品、Demo 核验、许可证法律判断或生产身份能力。
+默认运行仍是有意保留的失败关闭状态：`VIBESOURCE_SUBMISSION_MODE` 未显式设为 `local` 时，页面和 API 都不会接收提交。GitHub 与 Demo 时点证据各自还需要显式开启和人工点击；当前没有批准、发布、公开产品、许可证法律判断或生产身份能力。
 
 ## M2 本地流程
 
@@ -57,15 +57,17 @@ VIBESOURCE_DB_PATH=/absolute/path/to/vibesource.sqlite
 VIBESOURCE_EDITOR_TOKEN=replace-with-a-local-secret
 VIBESOURCE_EDITOR_ID=local-editor
 VIBESOURCE_GITHUB_EVIDENCE_MODE=live
+VIBESOURCE_DEMO_EVIDENCE_MODE=live
 ```
 
 `VIBESOURCE_DB_PATH` 必须是绝对路径。启动后：
 
 - `/submit` 接收 8 项候选资料；服务端只校验字段和 URL 形状。
 - `POST /api/submissions` 原子保存 `pending_review` 记录和 `submitted` 审计事件。
-- `/editor/submissions` 使用本地编辑 token 查看待审核记录；编辑只能拒绝，或明确点击刷新 GitHub 证据。
+- `/editor/submissions` 使用本地编辑 token 查看待审核记录；编辑只能拒绝，或明确点击刷新 GitHub / Demo 证据。
 - 每次 GitHub 刷新只请求固定的公开仓库 API 一次，不读取 Token、不自动重试；保存来源、API 版本、观察时间、限流头、结构化快照或失败。
-- 最近刷新失败时保留上一份成功快照并标为 `stale`；Demo 和整体发布资格仍为 `not_checked`。
+- Demo 刷新解析全部地址，任一非公网地址即拒绝；一次 HTTPS GET 固定到已验证 IP，禁止重定向，收到响应头后停止且不读取正文。
+- 两类证据的最近刷新失败都会保留上一份成功快照并标为 `stale`；整体发布资格仍为 `not_checked`。
 
 本地存储使用 Node 24 内置的同步 `node:sqlite` 文件数据库和显式迁移。该 API 当前为 Stability 1.2 / Release Candidate，M2.1 只允许单实例本地使用；它不是生产数据库或托管方案的选择。
 
@@ -81,4 +83,4 @@ VIBESOURCE_GITHUB_EVIDENCE_MODE=live
 
 ## Current milestone
 
-M2 — M2.1 的候选/拒绝审计与 M2.2a 的显式 GitHub 时点证据已完成本地验收。下一步是 Demo 证据、许可证政策与生产身份；在这些边界完成前仍不设计批准或发布路径。
+M2 — 候选/拒绝审计、GitHub 时点证据与 M2.2b1 Demo 响应头证据已完成本地验收。下一步是许可证资格政策与生产身份；在这些边界完成前仍不设计批准或发布路径。

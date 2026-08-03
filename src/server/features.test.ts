@@ -10,6 +10,8 @@ describe("runtime feature configuration", () => {
       editorAvailable: false,
       githubEvidenceMode: "disabled",
       githubEvidenceAvailable: false,
+      demoEvidenceMode: "disabled",
+      demoEvidenceAvailable: false,
       databasePath: null,
     });
   });
@@ -60,5 +62,19 @@ describe("runtime feature configuration", () => {
       githubEvidenceMode: "live",
       githubEvidenceAvailable: true,
     });
+  });
+
+  it("requires an explicit live switch and a complete editor boundary for Demo evidence", () => {
+    const base = {
+      VIBESOURCE_SUBMISSION_MODE: "local",
+      VIBESOURCE_DB_PATH: "/tmp/vibesource-test.sqlite",
+      VIBESOURCE_DEMO_EVIDENCE_MODE: "live",
+    };
+    expect(getRuntimeConfiguration(base).demoEvidenceAvailable).toBe(false);
+    expect(getRuntimeConfiguration({
+      ...base,
+      VIBESOURCE_EDITOR_TOKEN: "a-long-local-token",
+      VIBESOURCE_EDITOR_ID: "qa-editor",
+    })).toMatchObject({ demoEvidenceMode: "live", demoEvidenceAvailable: true });
   });
 });

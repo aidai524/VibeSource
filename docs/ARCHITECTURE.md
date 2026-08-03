@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: M1 remains verified. M2.1 candidate/rejection and M2.2a local GitHub evidence are implemented; current checks cover 53 tests, production build, real public 200/404 responses, persistence and browser rendering.
+> Status: M1 remains verified. M2.1 candidate/rejection, M2.2a GitHub evidence and M2.2b1 Demo evidence are implemented; current checks cover 81 tests, production build, real external responses, persistence and browser rendering.
 
 ## Implemented M1 foundation
 
@@ -19,9 +19,10 @@
 - 文件持久化使用 Node 24 内置同步 `node:sqlite`、显式 schema 迁移和调用方提供的绝对路径。该 API 是 Stability 1.2 / Release Candidate，因此当前仅限本地、单实例、非生产使用。
 - 提交整体资格仍固定为 `not_checked`。M2.2a 另行保存 GitHub 证据：只有本地编辑明确点击才向固定公开 API 发起一次请求，不读取 GitHub Token、不自动重试或后台轮询。
 - `github_evidence_attempts` 是 schema v2 追加表，保存来源、API 版本、观察时间、HTTP/限流、结构化仓库字段或明确错误；触发器禁止 update/delete。最近失败不覆盖最后成功快照，读取视图派生 `observed/stale/error/not_checked`。
+- `demo_evidence_attempts` 是 schema v3 追加表。Demo 适配器解析全部地址并拒绝任何非公网结果，请求固定到已验证 IP，保持原 Host/TLS 身份，不跟随重定向，收到响应头后销毁响应且不读取正文；最近失败同样不覆盖最后成功快照。
 - 本地审核需要服务端配置的 token 和由服务端持有的 actor 标识。唯一状态转换是 `pending_review -> rejected`，理由、预期版本和审计事件在同一事务内处理。
-- 当前不包含批准、发布、公开产品页、生产身份、Demo 可用性检查或许可证法律判断。
-- 当前实现通过 lint、typecheck、53 个 Vitest 测试和 production build；M2.1 证据见 `outputs/verification/M2-1/`，GitHub 证据见 `outputs/verification/M2-2a/`。
+- 当前不包含批准、发布、公开产品页、生产身份或许可证法律判断。
+- 当前实现通过 lint、typecheck、81 个 Vitest 测试和 production build；证据见 `outputs/verification/M2-1/`、`M2-2a/` 与 `M2-2b1/`。
 
 ## System context
 
@@ -86,7 +87,7 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 | M2.1 候选提交与拒绝审计 | 本地 `node:sqlite` 文件 | 提交表单与本地审核页 | 显式迁移；绝对路径；单实例 | 提交/事件和拒绝/事件分别原子提交；失败不部分写入 |
 | 批准、公开产品与生产审计 | 未来 VibeSource 生产业务数据库 | 管理端和公开页视图 | 必须持久化并有迁移、备份和恢复策略 | M2.1 没有此状态；删除优先归档 |
 | M2.2a GitHub 仓库元数据 | GitHub at observed time | 带 `observed_at`、API 版本和来源的本地快照 | SQLite v2 追加尝试；生产保留期待确认 | 最近失败显示 stale/error，不覆盖旧成功、不写伪造值 |
-| Demo 可用性 | 最近一次受控检查结果 | 产品页状态 | 检查历史策略待确认 | 不把一次成功解释为持续可用 |
+| M2.2b1 Demo 可用性 | 受控请求在观察时点的响应头 | 带 `observed_at`、检查版本、HTTP、内容类型、固定 IP 与耗时的本地快照 | SQLite v3 追加尝试；生产保留策略待确认 | 最近失败显示 stale/error；一次成功不解释为持续可用 |
 | AI 参与、技术栈和复用说明 | 开发者声明 + 编辑审核记录 | 公开产品版本 | 版本化保存 | 显示自述或核验状态 |
 | 点赞、评论和举报 | VibeSource 业务数据库 | 聚合计数 | 必须持久化 | 幂等、限频、软删除和申诉待设计 |
 | 每日榜单 | 公式版本 + 输入窗口的派生结果 | 公共缓存 | 保存每日快照 | 可按同版本重算；赞助金额不得进入自然榜 |
@@ -99,7 +100,7 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 | Dependency | Purpose | Credentials/data involved | Required failure behavior | Verified? |
 |---|---|---|---|---|
 | GitHub API | 仓库、许可证检测和指标证据 | M2.2a 仅未认证公开数据 | 手动重试；限流/失败可见，保留旧快照并标 stale | Partial — local real 200/404 and deterministic failures |
-| Product URLs | Demo、部署和源码跳转 | 不可信 URL 和网页内容 | 防 SSRF、开放重定向和恶意协议；失败不伪造可用 | No |
+| Product URLs | Demo、部署和源码跳转 | 不可信 URL；M2.2b1 不摄入正文 | 全地址公网校验、固定 IP、HTTPS、禁重定向；失败不伪造可用 | Partial — local real 200/301/reserved-address paths |
 | Identity provider | 登录与角色身份 | 账号标识、会话 | 登录失败不降级为管理员；最小权限 | No |
 | Local SQLite | M2.1 候选提交与拒绝审计 | 开发/QA 候选数据 | 只允许绝对路径和单实例；配置缺失时失效关闭 | Partial — local automated, browser and restart checks only |
 | Production database/storage | 公开业务真相和证据 | 用户与产品数据 | 备份、迁移、恢复和数据保留策略必须验证 | No |
@@ -112,7 +113,8 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 
 - 秘密只保存在服务端配置或秘密管理中，不进入源码、客户端包、日志、导出和生成文档。
 - 所有仓库内容、Markdown、图片、URL、API 响应、评论和开发者声明均按不可信数据处理。
-- M2.2a 只访问固定 `https://api.github.com/repos/{owner}/{repo}`，8 秒超时、1 MiB 响应上限且不跟随重定向；后续 Demo 访问仍需单独设计 SSRF 防护。
+- M2.2a 只访问固定 `https://api.github.com/repos/{owner}/{repo}`，8 秒超时、1 MiB 响应上限且不跟随重定向。
+- M2.2b1 Demo 请求只允许 HTTPS；解析并校验全部地址后固定连接到选定公网 IP，保持原域名 TLS 校验，不跟随重定向，8 秒超时、16 KiB 响应头上限且不读取正文。
 - 渲染用户内容时防止 XSS；外链使用安全属性并避免可控开放重定向。
 - GitHub 和其他供应商权限遵循最小范围；公开数据能满足时不索取写权限。
 - 提交、投票、评论、登录和刷新任务需要限频、幂等、审计与反机器人策略。
