@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "auth:schema": "auth generate --config src/server/auth-schema.ts --output migrations/0001_better_auth.sql --yes",
     "verify:license-policy-source": "node scripts/verify-license-policy-source.mjs",
-    "check": "npm run lint && npm run typecheck && npm test && npm run build"
+    "verify:postgres-migrations": "node scripts/verify-postgres-migrations.mjs",
+    "check": "npm run lint && npm run typecheck && npm test && npm run verify:postgres-migrations && npm run build"
   },
   "dependencies": {
     "better-auth": "^1.6.25",
@@ -27,6 +28,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.4.5",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.20.3",
     "@types/react": "^19.2.0",

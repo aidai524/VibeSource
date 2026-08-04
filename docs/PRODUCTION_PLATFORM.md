@@ -37,7 +37,9 @@ Apply migrations in numeric order with a migration-owner connection:
 1. `migrations/0001_better_auth.sql` — Better Auth 1.6.25 core tables and indexes.
 2. `migrations/0002_editor_role_grants.sql` — application-owned, reasoned role grants and revocations.
 
-`npm run auth:schema` asks Better Auth's pinned CLI to generate its current schema. It requires a reachable disposable PostgreSQL database because the CLI introspects existing tables. The command was attempted locally, but no PostgreSQL service or Docker daemon was available; therefore the committed SQL still requires comparison against a generated schema and application to a disposable database before production use.
+`npm run verify:postgres-migrations` applies both committed migrations twice to an in-memory PGlite PostgreSQL 17 WASM engine. It checks the expected tables and indexes, database-enforced role/reason/revocation constraints, unique active user/actor grants, re-grant after complete revocation and role-history retention. This is a deterministic SQL compatibility test, not a substitute for a networked PostgreSQL service, pooling or operations rehearsal.
+
+`npm run auth:schema` asks Better Auth's pinned CLI to generate its current schema. It requires a reachable disposable PostgreSQL database because the CLI introspects existing tables. The command was attempted locally, but no PostgreSQL service or Docker daemon was available; therefore the committed Better Auth SQL still requires comparison against CLI output before production use.
 
 Use separate database roles:
 
@@ -53,7 +55,7 @@ After a user completes GitHub sign-in, an operator must resolve the Better Auth 
 
 ## Remaining production blockers
 
-- compare and apply both migrations on disposable then preview PostgreSQL;
+- compare Better Auth's generated schema, then apply both migrations on disposable networked and preview PostgreSQL;
 - create GitHub OAuth app and verify callback, private-email and failure paths;
 - verify session creation, fixed expiry, logout/revocation and role changes in preview;
 - migrate candidate, evidence and audit state from local SQLite to PostgreSQL;

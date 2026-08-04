@@ -39,7 +39,8 @@ Last updated: 2026-08-04
 - M2.2b2b2a 已实现默认关闭的 Better Auth 1.6.25 + GitHub OAuth + PostgreSQL session 适配器；完整 HTTPS/secret/OAuth/database 配置才启用真实 auth handler。
 - 敏感编辑 API 强制数据库 session 查询，再读取应用自有的唯一活动角色 grant；未认证 401、已认证未授权 403、基础设施故障 503，GitHub identity 不自动授予角色。
 - PostgreSQL 核心 auth schema 与可审计角色授权迁移已提交；Vercel + Neon pooled PostgreSQL 是首个验证目标，但没有创建外部资源，也没有迁移本地业务数据。
-- 当前 `npm run check` 通过：12 个文件、102 个测试、lint、typecheck 和 production build；本地 token 与外部登录空状态浏览器回归通过。
+- PGlite 仅作为开发测试依赖；两份迁移已在 PostgreSQL 17.5 WASM 中重复应用并验证 6 张表、7 个索引、角色/理由/撤销约束、活动 user/actor 唯一性、重新授权和历史保留。
+- 当前 `npm run check` 通过：12 个文件、102 个 Vitest 测试、PostgreSQL 迁移验证、lint、typecheck 和 production build；本地 token 与外部登录空状态浏览器回归通过。
 
 ## In progress
 
@@ -63,6 +64,7 @@ Last updated: 2026-08-04
 - Health endpoint: `src/app/api/health/route.ts`
 - Development: `npm run dev`
 - Tests: `npm test`
+- PostgreSQL migration verification: `npm run verify:postgres-migrations`
 - Complete checks: `npm run check`
 - Production build/server: `npm run build && npm run start`
 
@@ -121,6 +123,7 @@ Last updated: 2026-08-04
 | M2.2b2b2a automated checks | Complete | `npm run check`; lint/typecheck passed, 12 files / 102 tests passed, Next.js production build completed | 2026-08-04 |
 | M2.2b2b2a browser fallback | Complete | Local token queue remained functional; external mode showed GitHub login and returned explicit unauthenticated state; both had no 1280px overflow | 2026-08-04 |
 | M2.2b2b2a evidence package | Complete | `outputs/verification/M2-2b2b2a/README.md` records implementation, failure boundaries and missing live provider/database verification | 2026-08-04 |
+| M2.2b2b2a local PostgreSQL migration verification | Complete | Both migrations replayed on PGlite PostgreSQL 17.5 WASM; 6 tables, 7 required indexes and 7 role-grant behaviors passed | 2026-08-04 |
 
 ## Known risks and unverified items
 
@@ -131,6 +134,7 @@ Last updated: 2026-08-04
 - 本地 `node:sqlite` 是同步、单实例文件存储，且 API 为 Stability 1.2 / Release Candidate；它不证明生产数据库、并发、备份或恢复能力。
 - Demo 只验证单个时点的响应头，不证明持续可用、内容安全或部署成功；许可证法律/资格判断、真实 GitHub OAuth/PostgreSQL/Vercel、邮件、支付、分析和生产部署均未验证。
 - 当前 local build 和浏览器成功不证明生产托管、签名域名、监控、备份与回滚能力。
+- PGlite 只证明单进程 WASM PostgreSQL 上的 SQL 执行和约束；不证明 Better Auth CLI schema 一致性、网络 PostgreSQL、并发、Neon pooling、session 或运维能力。
 - 新增依赖已锁定并通过 build/test，但当前安全公告查询未执行；对外发送依赖清单前需明确授权，生产上线前必须补做依赖审计。
 - M2.1 只证明单实例本地候选提交与人工拒绝路径；不证明批准、发布、公开产品、榜单或流量闭环。
 

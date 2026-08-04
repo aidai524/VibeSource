@@ -19,10 +19,13 @@ npm run check
 lint: passed
 typecheck: passed
 tests: 12 files, 102 tests passed
+postgres migrations: passed on PGlite PostgreSQL 17.5 WASM
 production build: passed
 ```
 
 Tests cover complete/incomplete production configuration, HTTPS enforcement, local-token regression, injected external principals, missing role grants, permission denial, infrastructure failure, invalid database roles and auth route fail-closed behavior.
+
+`npm run verify:postgres-migrations` applies `0001` and `0002` twice, then verifies six expected tables, seven required indexes and seven role-grant behaviors: supported roles, reason length, complete revocation, one active grant per user, one active grant per actor, re-grant after revocation and retained grant history. It passed on the bundled PGlite PostgreSQL 17.5 WASM engine.
 
 ## Browser verification
 
@@ -36,12 +39,12 @@ The local server was stopped and browser tabs were finalized after verification.
 
 ## Migration-generation boundary
 
-`npm run auth:schema` was attempted with Better Auth's pinned CLI. The CLI requires a reachable PostgreSQL database for schema introspection; the machine had no PostgreSQL server and the Docker daemon was not running, so the command failed before writing output. `migrations/0001_better_auth.sql` reflects Better Auth 1.6.25's core schema for the committed options, but it must be compared with CLI output and applied to a disposable PostgreSQL database before production.
+`npm run auth:schema` was attempted with Better Auth's pinned CLI. The CLI requires a reachable PostgreSQL database for schema introspection; the machine had no PostgreSQL server and the Docker daemon was not running, so the command failed before writing output. `migrations/0001_better_auth.sql` reflects Better Auth 1.6.25's core schema for the committed options. The SQL now executes in PGlite, but it must still be compared with CLI output and applied to a disposable networked PostgreSQL database before production.
 
 ## Not verified
 
 - no GitHub OAuth application, callback, account or private-email path;
-- no live PostgreSQL/Neon schema, session, connection pool or role grant;
+- no live network PostgreSQL/Neon schema, session, connection pool or role grant; PGlite only verifies local SQL and constraints;
 - no Vercel preview or production deployment;
 - no session revocation, secret rotation, backup or restore rehearsal;
 - business submissions/evidence remain in local SQLite;

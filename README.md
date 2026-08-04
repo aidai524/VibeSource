@@ -1,6 +1,6 @@
 # VibeSource
 
-> Status: M2 in progress · M2.2b2b2a GitHub OAuth/PostgreSQL adapter implemented but not live-verified · Architecture profile: standard
+> Status: M2 in progress · M2.2b2b2a GitHub OAuth/PostgreSQL adapter and local migration harness implemented but not live-verified · Architecture profile: standard
 
 VibeSource 是一个专门发现和发布 AI 原生开源产品的平台。开发者可以获得首发与持续流量；用户可以直接体验产品、查看源码、判断 AI 的参与方式，并基于许可证与部署说明复用成果。
 
@@ -43,7 +43,7 @@ npm run build
 npm run start
 ```
 
-当前代码已通过 `npm run check`（102 项测试与 production build）。M2.1 至 M2.2b2b2a 的证据位于 `outputs/verification/`；真实 GitHub OAuth、PostgreSQL 和 Vercel 环境仍未创建或验证。
+当前代码已通过 `npm run check`（102 项 Vitest 测试、PostgreSQL 迁移约束验证与 production build）。M2.1 至 M2.2b2b2a 的证据位于 `outputs/verification/`；真实 GitHub OAuth、托管 PostgreSQL 和 Vercel 环境仍未创建或验证。
 
 默认运行仍是有意保留的失败关闭状态：`VIBESOURCE_SUBMISSION_MODE` 未显式设为 `local` 时，页面和 API 都不会接收提交。GitHub 与 Demo 时点证据各自需要显式开启和有权限的人工点击；许可证策略只派生人工复核建议。当前没有批准、发布、公开产品、许可证法律判断或生产身份能力。
 
@@ -76,7 +76,7 @@ VIBESOURCE_DEMO_EVIDENCE_MODE=live
 
 ## M2 生产身份目标
 
-M2.2b2b2a 已加入默认关闭的 Better Auth 1.6.25 + GitHub OAuth + PostgreSQL 数据库会话适配器。完整配置见 `.env.example`；核心 schema 和应用角色授权表位于 `migrations/`。GitHub 登录只建立账号身份，只有 `vibesource_editor_role_grants` 中未撤销的人工授权才能产生编辑权限。
+M2.2b2b2a 已加入默认关闭的 Better Auth 1.6.25 + GitHub OAuth + PostgreSQL 数据库会话适配器。完整配置见 `.env.example`；核心 schema 和应用角色授权表位于 `migrations/`。`npm run verify:postgres-migrations` 会在内存 PGlite/PostgreSQL WASM 中重放迁移并验证关键约束。GitHub 登录只建立账号身份，只有 `vibesource_editor_role_grants` 中未撤销的人工授权才能产生编辑权限。
 
 当前优先验证目标是 Vercel Node.js 托管与 Neon pooled PostgreSQL，但业务提交仍由本地 SQLite 适配器保存，所以项目尚不能作为生产系统部署。创建外部账号、应用迁移和生产部署仍需单独确认与验收。
 
@@ -95,4 +95,4 @@ M2.2b2b2a 已加入默认关闭的 Better Auth 1.6.25 + GitHub OAuth + PostgreSQ
 
 ## Current milestone
 
-M2 — GitHub OAuth/PostgreSQL 身份适配器已实现并失败关闭；下一步是人工创建 GitHub OAuth、Neon 和 Vercel 资源，在预览环境运行迁移并验证真实登录、会话撤销和角色授权，然后把业务数据从 SQLite 迁往 PostgreSQL。在此完成前仍不设计批准或发布路径。
+M2 — GitHub OAuth/PostgreSQL 身份适配器已实现并失败关闭；迁移 SQL 已在本地 PostgreSQL WASM 中验证可重复执行及关键约束。下一步是人工创建 GitHub OAuth、Neon 和 Vercel 资源，在预览环境复核迁移并验证真实登录、会话撤销和角色授权，然后把业务数据从 SQLite 迁往 PostgreSQL。在此完成前仍不设计批准或发布路径。

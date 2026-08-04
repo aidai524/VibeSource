@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | M0 — 产品与可信机制基线 | 产品边界、非目标、数据真相源、人工控制和验收条件明确；待定政策有清单 | None | 文档确认 | Completed |
 | M1 — 可运行基础 | 技术栈与托管约束已决定；Git 仓库、安装/启动/测试命令和空状态应用在干净本地环境通过 | M0 | A-001 | Completed / Verified |
-| M2 — 可信提交与人工审核 | 开发者提交、GitHub/Demo 证据、错误状态、审核审计和发布资格形成真实纵向闭环 | M1 | A-101–A-105, A-109, A-111 | In progress — M2.2b2b2a implemented, external validation pending |
+| M2 — 可信提交与人工审核 | 开发者提交、GitHub/Demo 证据、错误状态、审核审计和发布资格形成真实纵向闭环 | M1 | A-101–A-105, A-109, A-111 | In progress — M2.2b2b2a plus local migration verification implemented, external validation pending |
 | M3 — 发现与社区 | 分类、每日榜单、点赞和评论在明确身份、排序和反作弊规则下可用 | M2 | A-106, A-107 | Planned |
 | M4 — 首发供给与分发 | 50–100 个真实产品完成核验；Newsletter 明示订阅、退订和人工发送可验证 | M2 | A-108, A-112 | Planned |
 | M5 — 首个商业验证 | 在自然发现成立后，小规模验证一个透明赞助/首发服务，费用和标记全程可见 | M3, M4 | A-110 | Planned |
@@ -35,6 +35,7 @@
 - **M2.2b2a — 许可证机器分流政策（Implemented, locally verified）**：版本化 SPDX 3.28.0 OSI-approved 快照；将当前 GitHub 证据、SPDX 标识和开发者声明派生为未就绪/需人工判断/可进入人工复核，不产生法律或发布结论。
 - **M2.2b2b1 — 编辑身份与权限契约（Implemented, locally verified）**：定义 editor/license_reviewer/admin 和最小权限；所有编辑 API 服务端授权，UI 同步隐藏无权操作；本地 token 只验证契约，external-oidc 保留但失败关闭。
 - **M2.2b2b2a — 生产身份适配器（Implemented, not live-verified）**：Better Auth + GitHub OAuth + PostgreSQL 数据库会话；角色授权由应用表持有，未登录 401、未授权 403、故障 503。Vercel/Neon 为首个验证目标，但没有真实外部资源。
+- **M2.2b2b2a+ — 本地 PostgreSQL 迁移验证（Implemented, locally verified）**：使用仅限开发测试的 PGlite/PostgreSQL WASM 重放两份迁移，验证幂等、核心表/索引、角色/理由/完整撤销约束、活动授权唯一性和授权历史阻止级联删除；不等同于 Neon、连接池、备份或真实 session 验证。
 - **M2.2b2b2b — 预览环境身份验收（Next, needs human-created resources）**：创建 GitHub OAuth、Neon 和 Vercel 配置，应用/复核迁移，验证真实回调、会话撤销、角色变更与故障路径；随后迁移业务数据适配器。在此之前不实现 approve/publish。
 - **M2 exit**：只有在可追溯外部证据、人工批准、公开产品和失败恢复完成后，才能把 M2 标为 Completed。
 

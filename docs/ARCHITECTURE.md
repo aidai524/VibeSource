@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: M1 remains verified. M2.1 through M2.2b2b2a are implemented; current checks cover 102 tests, production build, real evidence responses, local persistence, external-auth fail-closed behavior, role authorization and browser rendering. GitHub OAuth/PostgreSQL/Vercel remain live-unverified.
+> Status: M1 remains verified. M2.1 through M2.2b2b2a are implemented; current checks cover 102 tests, production build, real evidence responses, local persistence, external-auth fail-closed behavior, role authorization, browser rendering and local PostgreSQL migration constraints. GitHub OAuth/network PostgreSQL/Vercel remain live-unverified.
 
 ## Implemented M1 foundation
 
@@ -8,7 +8,7 @@
 - TypeScript 5.9 on Node.js 24 with npm 11 and `package-lock.json`.
 - ESLint 9, Vitest 4, production build, static homepage and `/api/health` route.
 - Provider-neutral Node server shape: it can run anywhere that supports the documented Node runtime; no production host has been selected or verified.
-- No production database, GitHub OAuth credential, email provider, analytics service or payment provider is connected; adapters and migrations are code only.
+- No production database, GitHub OAuth credential, email provider, analytics service or payment provider is connected; adapters and migrations are code only. PGlite is a dev-only in-process migration test dependency.
 - M1 stores no business data. Homepage status and qualification copy are reviewed static content in source, not simulated product records.
 
 ## 已实现的 M2 本地切片
@@ -24,7 +24,7 @@
 - 本地审核使用服务端配置的 token、actor 与角色。`editor`、`license_reviewer`、`admin` 的最小权限由应用确定，每个编辑 API 在服务端校验具体权限；无权操作不只是在 UI 隐藏，而是返回 403。唯一状态转换仍是 `pending_review -> rejected`。
 - 外部身份模式使用 Better Auth + GitHub OAuth + PostgreSQL 数据库会话。完整配置才暴露真实 auth handler；敏感编辑 API 每次查库验证 session，再读取唯一活动角色授权。未认证 401、已认证未授权 403、身份基础设施故障 503。
 - 当前不包含批准、发布、公开产品页、生产身份或许可证法律判断。
-- 当前实现通过 lint、typecheck、102 个 Vitest 测试和 production build；证据见 `outputs/verification/M2-1/` 至 `M2-2b2b2a/`。
+- 当前实现通过 lint、typecheck、102 个 Vitest 测试、PGlite/PostgreSQL WASM 迁移约束验证和 production build；证据见 `outputs/verification/M2-1/` 至 `M2-2b2b2a/`。
 
 ## System context
 
@@ -94,6 +94,7 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 | M2.2b2a 许可证策略 | 版本化代码与政策源 | 审核 API/UI 的确定性派生视图 | Git 中的策略版本、SPDX 标识快照和 SHA-256；不另存派生结果 | 政策升级必须新版本；不改写历史 GitHub 证据 |
 | M2.2b2b1 编辑授权 | 应用角色与权限映射 | 当前由服务端环境配置派生；未来由生产数据库持有 | 不保存本地会话；API 按操作授权 | external-oidc 无适配器即不可用；客户端不能选择 actor/role |
 | M2.2b2b2a 外部身份 | GitHub identity + Better Auth session + application role grant | OAuth callback、数据库 session、活动 grant | `EditorPrincipal` 或明确 401/403/503 | fixed 8h session；无 cookie cache；GitHub claim 不授予角色 |
+| PostgreSQL 迁移测试 | 仓库内 SQL + PGlite PostgreSQL WASM | 仅测试进程内临时数据库 | `npm run verify:postgres-migrations`；不保存数据 | 验证 SQL/约束，不证明网络、并发、连接池、备份或恢复 |
 | AI 参与、技术栈和复用说明 | 开发者声明 + 编辑审核记录 | 公开产品版本 | 版本化保存 | 显示自述或核验状态 |
 | 点赞、评论和举报 | VibeSource 业务数据库 | 聚合计数 | 必须持久化 | 幂等、限频、软删除和申诉待设计 |
 | 每日榜单 | 公式版本 + 输入窗口的派生结果 | 公共缓存 | 保存每日快照 | 可按同版本重算；赞助金额不得进入自然榜 |
