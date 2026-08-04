@@ -7,7 +7,7 @@
 - Authentication: Better Auth 1.6.25 with GitHub OAuth and database-backed sessions.
 - Authorization: VibeSource-owned roles in `vibesource_editor_role_grants`; GitHub profile claims never grant editor access.
 
-This is a target for the first production-like validation, not evidence of a deployed system. Cloudflare Worker/Hyperdrive, Neon and GitHub OAuth resources have not been created, configured or paid for.
+The first preview infrastructure slice is now deployed: a Neon preview database has all three migrations, Cloudflare Hyperdrive is bound as `HYPERDRIVE`, and the existing Worker is live at `https://vibesource.aidai524.workers.dev`. This does not yet prove a production authentication or business-data flow: GitHub OAuth and the required application secrets/modes remain disabled, and no real SQLite data has been imported.
 
 ## Why this target
 
@@ -32,7 +32,9 @@ GITHUB_CLIENT_SECRET=<server secret>
 
 The GitHub callback is `${BETTER_AUTH_URL}/api/auth/callback/github`. Secrets must stay in Cloudflare's secret store and must not be copied into `wrangler.jsonc`, source, preview logs or evidence packages. `DATABASE_URL` remains available for migration/schema commands outside Workers and as an explicitly configured fallback, but it must also be stored as a secret.
 
-Committed deployment files are `wrangler.jsonc`, `open-next.config.ts` and the OpenNext setup in `next.config.ts`. `wrangler.jsonc` intentionally has no fake Hyperdrive ID. An operator adds the real binding only after creating and reviewing the resource.
+Committed deployment files are `wrangler.jsonc`, `open-next.config.ts` and the OpenNext setup in `next.config.ts`. `wrangler.jsonc` contains only the reviewed Hyperdrive resource ID; origin credentials remain in Cloudflare and Neon.
+
+OpenNext 1.20.2 calls Wrangler's local platform proxy while preparing a remote deployment. With a Hyperdrive binding, that preparation requires `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`. Use a local development PostgreSQL URL for local work and keep it outside the repository. The 2026-08-04 remote deployment used an unreachable loopback placeholder only to initialize the proxy; no cache population or database query used it, and the deployed Worker received the remote Hyperdrive binding.
 
 ## Database changes
 
@@ -42,7 +44,9 @@ Apply migrations in numeric order with a migration-owner connection:
 2. `migrations/0002_editor_role_grants.sql` — application-owned, reasoned role grants and revocations.
 3. `migrations/0003_submission_business_storage.sql` — candidates, review events and append-only GitHub/Demo evidence.
 
-`npm run verify:postgres-migrations` applies both committed migrations twice to an in-memory PGlite PostgreSQL 17 WASM engine. It checks the expected tables and indexes, database-enforced role/reason/revocation constraints, unique active user/actor grants, re-grant after complete revocation and role-history retention. This is a deterministic SQL compatibility test, not a substitute for a networked PostgreSQL service, pooling or operations rehearsal.
+`npm run verify:postgres-migrations` applies all three committed migrations twice to an in-memory PGlite PostgreSQL 17 WASM engine. It checks the expected tables and indexes, database-enforced role/reason/revocation constraints, unique active user/actor grants, re-grant after complete revocation and role-history retention. This is a deterministic SQL compatibility test, not a substitute for a networked PostgreSQL service, pooling or operations rehearsal.
+
+`npm run apply:postgres-migrations -- --apply` is the explicit network PostgreSQL migration command. It records no connection URL, applies the three files in numeric order, and verifies 10 target tables, 12 required indexes and 6 append-only triggers. The preview Neon database was also checked read-only after application on 2026-08-04.
 
 `npm run auth:schema` asks Better Auth's pinned CLI to generate its current schema. It requires a reachable disposable PostgreSQL database because the CLI introspects existing tables. The command was attempted locally, but no PostgreSQL service or Docker daemon was available; therefore the committed Better Auth SQL still requires comparison against CLI output before production use.
 
@@ -64,11 +68,11 @@ After a user completes GitHub sign-in, an operator must resolve the Better Auth 
 
 ## Remaining production blockers
 
-- create and review the Cloudflare Worker, Hyperdrive and Neon resources without committing IDs or credentials;
-- compare Better Auth's generated schema, then apply all three migrations on disposable networked and preview PostgreSQL;
+- compare Better Auth's generated schema against the applied preview schema;
 - create GitHub OAuth app and verify callback, private-email and failure paths;
+- exercise an application query through the deployed Hyperdrive binding before enabling PostgreSQL submission mode;
 - verify session creation, fixed expiry, logout/revocation and role changes in preview;
 - dry-run, review and explicitly apply candidate/evidence/audit import from local SQLite to empty PostgreSQL business tables;
 - verify backups, restore, migration rollback, monitoring, rate limits and secret rotation;
-- verify Worker size, CPU/runtime limits, logs, rollback and custom-domain behavior;
+- verify Worker CPU/runtime limits, logs, rollback and custom-domain behavior;
 - only then design approve/publish state transitions.

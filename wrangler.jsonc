@@ -10,8 +10,11 @@
   },
   "observability": {
     "enabled": true
-  }
-
-  // Add a HYPERDRIVE binding only after an operator has created and reviewed
-  // the Cloudflare Hyperdrive resource. Never commit its origin credentials.
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "c3abf97f88cf4e439cc9e34a7f6c1f3c"
+    }
+  ]
 }

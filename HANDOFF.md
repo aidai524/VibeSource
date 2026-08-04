@@ -43,14 +43,16 @@ Last updated: 2026-08-04
 - Cloudflare OpenNext 适配已实现：`nodejs_compat`、Workers-safe `pg-cloudflare` 打包、可选 Hyperdrive 连接串注入和 `maxUses: 1`；本地 Worker 首页/健康接口 200，未配置 auth/提交接口保持 503。
 - M2.2b2b2c 已实现异步 PostgreSQL 业务仓储：候选、审核事件和 GitHub/Demo 证据保持原领域语义；待审部分唯一索引、短事务行锁、版本检查和追加触发器已在 PGlite 验证。
 - SQLite schema-v3 导入工具默认只读 dry-run；只有显式 `--apply`、目标业务表全空且单事务前后计数一致才提交。本地 token 在 postgres 模式中不可用。
-- 当前 `npm run check` 通过：14 个文件、109 个 Vitest 测试、PostgreSQL 迁移验证、lint、typecheck、Next production build 和 Cloudflare OpenNext build；本地 token 与外部登录空状态浏览器回归通过。
+- Neon preview 已创建并应用三份迁移；PostgreSQL 17.10 只读复核为 10 张目标表、12 个必要索引和 6 个追加触发器。
+- Cloudflare Hyperdrive `vibesource-neon-preview` 已关闭缓存并绑定为 `HYPERDRIVE`；Worker 版本 `6b9eb1fa-e186-40aa-aef4-22eeb07f3b33` 已发布到 `https://vibesource.aidai524.workers.dev`，四个公开入口返回 HTTP 200。
+- 当前 `npm run check` 通过：15 个文件、110 个 Vitest 测试、PostgreSQL 迁移验证、lint、typecheck、Next production build 和 Cloudflare OpenNext build；本地 token 与外部登录空状态浏览器回归通过。
 
 ## In progress
 
 - 保持 M2.1 的本地证据包可复现，不把它升级解释为生产能力。
 - 设计生产许可证人工复核流程；本地机器分流已完成，但公开产品变更处理、生产刷新和保留策略仍待定。
-- 按 D-023 创建并验证 GitHub OAuth、Cloudflare Worker/Hyperdrive 与 Neon preview database；应用/复核迁移、session/revocation 和角色变化。本地 token 不能升级解释为生产身份。
-- 在真实 Hyperdrive/Neon 上验证 PostgreSQL 业务仓储、迁移、导入、备份与恢复；本地 PGlite 不关闭 D-015。
+- 按 D-023 创建并验证 GitHub OAuth；通过已部署的 Hyperdrive/Neon 验证 session/revocation、角色变化和业务读写。本地 token 不能升级解释为生产身份。
+- 在真实 Hyperdrive/Neon 上继续验证 PostgreSQL 业务仓储、导入、备份与恢复；迁移已应用不关闭 D-015。
 - 确认 Newsletter、分析和后续支付方案。
 - 确认开放源码资格、AI 参与分类、榜单算法与反作弊政策。
 - 确认首发语言、目标市场和对外品牌名。
@@ -70,6 +72,7 @@ Last updated: 2026-08-04
 - Development: `npm run dev`
 - Tests: `npm test`
 - PostgreSQL migration verification: `npm run verify:postgres-migrations`
+- Explicit network PostgreSQL migration: `npm run apply:postgres-migrations -- --apply`
 - SQLite import dry-run: `npm run migrate:sqlite-to-postgres -- --source=/absolute/file.sqlite`
 - Cloudflare build: `npm run build:cloudflare`
 - Cloudflare local preview: `npm run preview:cloudflare`
@@ -139,6 +142,9 @@ Last updated: 2026-08-04
 | M2.2b2b2c PostgreSQL business repository | Complete | PGlite tests passed for idempotency, pending uniqueness, versioned rejection, stale evidence and append-only database triggers | 2026-08-04 |
 | M2.2b2b2c controlled SQLite transfer | Complete | Read-only schema-v3 snapshot, empty-target enforcement, one-transaction import, count parity and repeat-import rejection passed | 2026-08-04 |
 | M2.2b2b2c evidence package | Complete | `outputs/verification/M2-2b2b2c-postgres/README.md` records implementation, checks and live-database boundaries | 2026-08-04 |
+| M2.2b2b2d Neon migrations | Complete | PostgreSQL 17.10 returned 10 target tables, 12 required indexes and 6 append-only triggers after applying all three migrations | 2026-08-04 |
+| M2.2b2b2d Hyperdrive deploy | Complete | Hyperdrive binding and assets resolved in dry-run; Worker version `6b9eb1fa-e186-40aa-aef4-22eeb07f3b33` deployed and four public routes returned HTTP 200 | 2026-08-04 |
+| M2.2b2b2d evidence package | Complete | `outputs/verification/M2-2b2b2d-cloudflare-neon/README.md` records external resources, checks, credential boundary and remaining production gaps | 2026-08-04 |
 
 ## Known risks and unverified items
 
@@ -147,7 +153,7 @@ Last updated: 2026-08-04
 - 榜单、点赞、评论和提交入口会受到刷量、机器人和垃圾内容攻击。
 - Demo 链接、仓库内容和用户提交均是不可信外部输入。
 - 本地 `node:sqlite` 是同步、单实例文件存储，且 API 为 Stability 1.2 / Release Candidate；它不证明生产数据库、并发、备份或恢复能力。
-- Demo 只验证单个时点的响应头，不证明持续可用、内容安全或部署成功；许可证法律/资格判断、真实 GitHub OAuth/Hyperdrive/PostgreSQL/远端 Cloudflare、邮件、支付、分析和生产部署均未验证。
+- Demo 只验证单个时点的响应头，不证明持续可用或内容安全；许可证法律/资格判断、真实 GitHub OAuth、通过 Hyperdrive 的应用查询、邮件、支付、分析和生产业务闭环均未验证。
 - 当前 local build 和浏览器成功不证明生产托管、签名域名、监控、备份与回滚能力。
 - PGlite 只证明单进程 WASM PostgreSQL 上的 SQL 执行和约束；不证明 Better Auth CLI schema 一致性、网络 PostgreSQL、并发、Neon pooling、session 或运维能力。
 - PostgreSQL 业务仓储和 SQLite 导入只在 PGlite/临时 fixture 验证；真实导入前必须备份源库、复核 dry-run 计数并演练目标恢复。
@@ -156,4 +162,4 @@ Last updated: 2026-08-04
 
 ## Next smallest verifiable milestone
 
-由人工创建 GitHub OAuth App、Cloudflare Worker/Hyperdrive 和 Neon preview database；在预览环境复核并应用三份迁移，验证 callback、private email、session expiry/revocation、角色 grant/revoke 和 PostgreSQL 业务读写。对真实 SQLite 数据先备份与 dry-run，人工复核计数后再显式 `--apply`，并验证恢复。在这些完成前保持 approve/publish 不存在。
+由人工创建 GitHub OAuth App 并写入 Cloudflare secret store；在已部署的 Hyperdrive/Neon 预览环境验证 callback、private email、session expiry/revocation、角色 grant/revoke 和 PostgreSQL 业务读写。对真实 SQLite 数据先备份与 dry-run，人工复核计数后再显式 `--apply`，并验证恢复。在这些完成前保持 approve/publish 不存在。
