@@ -31,6 +31,9 @@ function createProductionAuthRuntime(
   const pool = new Pool({
     connectionString: configuration.databaseUrl,
     max: 5,
+    // Workers may reuse an isolate across requests, but a database connection
+    // must not be retained across request boundaries. Hyperdrive owns pooling.
+    maxUses: 1,
     idleTimeoutMillis: 10_000,
     connectionTimeoutMillis: 5_000,
     allowExitOnIdle: true,

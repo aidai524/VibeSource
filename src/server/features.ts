@@ -1,4 +1,5 @@
 import path from "node:path";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 import { isEditorRole, type EditorRole } from "@/domain/editor-identity";
 
@@ -34,6 +35,40 @@ export type RuntimeConfiguration = {
 
 type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
 
+type CloudflareHyperdriveBinding = {
+  readonly connectionString?: unknown;
+};
+
+type CloudflareRuntimeEnvironment = {
+  readonly HYPERDRIVE?: CloudflareHyperdriveBinding;
+};
+
+export function withCloudflareDatabaseBinding(
+  environment: RuntimeEnvironment,
+  binding: CloudflareHyperdriveBinding | undefined,
+): RuntimeEnvironment {
+  if (environment.DATABASE_URL?.trim()) return environment;
+  if (typeof binding?.connectionString !== "string") return environment;
+  const connectionString = binding.connectionString.trim();
+  if (!connectionString) return environment;
+
+  return { ...environment, DATABASE_URL: connectionString };
+}
+
+function getDefaultRuntimeEnvironment(): RuntimeEnvironment {
+  try {
+    const cloudflareEnvironment = getCloudflareContext().env as unknown as
+      CloudflareRuntimeEnvironment;
+    return withCloudflareDatabaseBinding(
+      process.env,
+      cloudflareEnvironment.HYPERDRIVE,
+    );
+  } catch {
+    // Standard Next.js builds and Node.js tests do not have a Workers context.
+    return process.env;
+  }
+}
+
 function parseUrl(value: string | undefined, protocols: readonly string[]): string | null {
   const candidate = value?.trim();
   if (!candidate) return null;
@@ -46,7 +81,7 @@ function parseUrl(value: string | undefined, protocols: readonly string[]): stri
 }
 
 export function getRuntimeConfiguration(
-  environment: RuntimeEnvironment = process.env,
+  environment: RuntimeEnvironment = getDefaultRuntimeEnvironment(),
 ): RuntimeConfiguration {
   const mode = environment.VIBESOURCE_SUBMISSION_MODE === "local"
     ? "local"

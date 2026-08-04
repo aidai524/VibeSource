@@ -34,9 +34,10 @@
 - **M2.2b1 — 本地 Demo 响应头证据（Implemented, locally verified）**：显式一次固定公网 IP 的 HTTPS GET；禁止重定向并在响应头后停止；追加保存成功/失败和 stale 语义。真实 200、保留地址拒绝、301 拦截和持久化已验证。
 - **M2.2b2a — 许可证机器分流政策（Implemented, locally verified）**：版本化 SPDX 3.28.0 OSI-approved 快照；将当前 GitHub 证据、SPDX 标识和开发者声明派生为未就绪/需人工判断/可进入人工复核，不产生法律或发布结论。
 - **M2.2b2b1 — 编辑身份与权限契约（Implemented, locally verified）**：定义 editor/license_reviewer/admin 和最小权限；所有编辑 API 服务端授权，UI 同步隐藏无权操作；本地 token 只验证契约，external-oidc 保留但失败关闭。
-- **M2.2b2b2a — 生产身份适配器（Implemented, not live-verified）**：Better Auth + GitHub OAuth + PostgreSQL 数据库会话；角色授权由应用表持有，未登录 401、未授权 403、故障 503。Vercel/Neon 为首个验证目标，但没有真实外部资源。
+- **M2.2b2b2a — 生产身份适配器（Implemented, not live-verified）**：Better Auth + GitHub OAuth + PostgreSQL 数据库会话；角色授权由应用表持有，未登录 401、未授权 403、故障 503。Cloudflare Workers/OpenNext + Hyperdrive/Neon 为首个验证目标，但没有真实外部资源。
 - **M2.2b2b2a+ — 本地 PostgreSQL 迁移验证（Implemented, locally verified）**：使用仅限开发测试的 PGlite/PostgreSQL WASM 重放两份迁移，验证幂等、核心表/索引、角色/理由/完整撤销约束、活动授权唯一性和授权历史阻止级联删除；不等同于 Neon、连接池、备份或真实 session 验证。
-- **M2.2b2b2b — 预览环境身份验收（Next, needs human-created resources）**：创建 GitHub OAuth、Neon 和 Vercel 配置，应用/复核迁移，验证真实回调、会话撤销、角色变更与故障路径；随后迁移业务数据适配器。在此之前不实现 approve/publish。
+- **M2.2b2b2a++ — Cloudflare Workers 适配（Implemented, locally verified）**：OpenNext/Wrangler 配置、Workers-safe `pg-cloudflare` 打包、可选 Hyperdrive URL 注入和连接不跨请求复用；本地 Worker 首页/健康检查 200，未配置身份/提交保持 503。没有创建或发布外部资源。
+- **M2.2b2b2b — 预览环境身份验收（Next, needs human-created resources）**：创建 GitHub OAuth、Cloudflare Worker/Hyperdrive 和 Neon 配置，应用/复核迁移，验证真实回调、会话撤销、角色变更与故障路径；随后迁移业务数据适配器。在此之前不实现 approve/publish。
 - **M2 exit**：只有在可追溯外部证据、人工批准、公开产品和失败恢复完成后，才能把 M2 标为 Completed。
 
 ## Sequencing rules

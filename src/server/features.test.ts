@@ -1,8 +1,30 @@
 import { describe, expect, it } from "vitest";
 
-import { getRuntimeConfiguration } from "./features";
+import {
+  getRuntimeConfiguration,
+  withCloudflareDatabaseBinding,
+} from "./features";
 
 describe("runtime feature configuration", () => {
+  it("uses Hyperdrive only when a direct database URL is absent", () => {
+    const hyperdriveUrl = "postgresql://hyperdrive.internal/vibesource";
+
+    expect(
+      withCloudflareDatabaseBinding({}, { connectionString: hyperdriveUrl }),
+    ).toMatchObject({ DATABASE_URL: hyperdriveUrl });
+    expect(
+      withCloudflareDatabaseBinding(
+        { DATABASE_URL: "postgresql://direct.example/vibesource" },
+        { connectionString: hyperdriveUrl },
+      ),
+    ).toMatchObject({
+      DATABASE_URL: "postgresql://direct.example/vibesource",
+    });
+    expect(
+      withCloudflareDatabaseBinding({}, { connectionString: "  " }),
+    ).not.toHaveProperty("DATABASE_URL");
+  });
+
   it("fails closed by default", () => {
     expect(getRuntimeConfiguration({})).toMatchObject({
       mode: "disabled",

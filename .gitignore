@@ -3,6 +3,7 @@
 
 # Next.js
 /.next
+/.open-next
 /out
 
 # tests
@@ -11,6 +12,7 @@
 # local environment
 .env*
 !.env.example
+.dev.vars
 
 # local M2.1 persistence (never commit runtime data)
 /.data/
@@ -32,3 +34,4 @@ yarn-error.log*
 
 # deployment providers
 .vercel
+.wrangler

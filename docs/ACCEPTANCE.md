@@ -68,9 +68,9 @@
 ## M2.2b2b2a 验证边界
 
 - 已实现范围：Better Auth 1.6.25 + GitHub OAuth handler、PostgreSQL 数据库 session、固定八小时无滑动刷新、OAuth token 加密、state 入库、账号关联关闭、数据库限流和应用自有角色授权表。
-- 当前证据：`npm run check` 通过，包括 12 个文件中的 102 个 Vitest 测试、PGlite/PostgreSQL 17 WASM 迁移验证和 production build；自动化覆盖配置失效关闭、外部 principal、未分配角色 403、权限 403、基础设施异常 503、auth route 默认 503，以及迁移幂等、表/索引和角色授权数据库约束。
+- 当前证据：`npm run check` 通过，包括 12 个文件中的 103 个 Vitest 测试、PGlite/PostgreSQL 17 WASM 迁移验证、Next production build 和 Cloudflare OpenNext build；自动化覆盖配置失效关闭、Hyperdrive URL 注入优先级、外部 principal、未分配角色 403、权限 403、基础设施异常 503、auth route 默认 503，以及迁移幂等、表/索引和角色授权数据库约束。
 - 隔离浏览器中，本地 token 模式仍载入 `editor · 0 条`；外部模式显示 GitHub 登录和“登录不等于授权”说明，未登录明确返回 401；两种模式 1280px 无横向溢出。
-- 未验证：真实 GitHub callback/private-email、网络 PostgreSQL/Neon 上的 migration/session/revocation、Neon pooling、Vercel secrets/runtime、备份恢复和业务数据迁移。PGlite 是单进程测试引擎；缺少上述证据时不能称为生产身份已完成。
+- Cloudflare 本地预览：首页和健康接口返回 200；未配置 auth/session 与提交接口返回明确 503。未验证真实 GitHub callback/private-email、Hyperdrive/Neon 上的 migration/session/revocation、Cloudflare secrets/远端 runtime、备份恢复和业务数据迁移。PGlite 和本地 Wrangler 都不能替代真实预览环境验收。
 
 ## Release blockers
 

@@ -1,13 +1,13 @@
 # Architecture
 
-> Status: M1 remains verified. M2.1 through M2.2b2b2a are implemented; current checks cover 102 tests, production build, real evidence responses, local persistence, external-auth fail-closed behavior, role authorization, browser rendering and local PostgreSQL migration constraints. GitHub OAuth/network PostgreSQL/Vercel remain live-unverified.
+> Status: M1 remains verified. M2.1 through M2.2b2b2a are implemented; current checks cover 103 tests, Next/OpenNext builds, local Workers preview, real evidence responses, local persistence, external-auth fail-closed behavior, role authorization and local PostgreSQL migration constraints. GitHub OAuth/Hyperdrive/network PostgreSQL/remote Cloudflare remain live-unverified.
 
 ## Implemented M1 foundation
 
 - Next.js 16.2.12 App Router and React 19.2.8.
 - TypeScript 5.9 on Node.js 24 with npm 11 and `package-lock.json`.
 - ESLint 9, Vitest 4, production build, static homepage and `/api/health` route.
-- Provider-neutral Node server shape: it can run anywhere that supports the documented Node runtime; no production host has been selected or verified.
+- Cloudflare Workers through OpenNext is the selected production validation target; the standard Next Node build remains supported, but no production host has been created or verified.
 - No production database, GitHub OAuth credential, email provider, analytics service or payment provider is connected; adapters and migrations are code only. PGlite is a dev-only in-process migration test dependency.
 - M1 stores no business data. Homepage status and qualification copy are reviewed static content in source, not simulated product records.
 
@@ -24,7 +24,7 @@
 - 本地审核使用服务端配置的 token、actor 与角色。`editor`、`license_reviewer`、`admin` 的最小权限由应用确定，每个编辑 API 在服务端校验具体权限；无权操作不只是在 UI 隐藏，而是返回 403。唯一状态转换仍是 `pending_review -> rejected`。
 - 外部身份模式使用 Better Auth + GitHub OAuth + PostgreSQL 数据库会话。完整配置才暴露真实 auth handler；敏感编辑 API 每次查库验证 session，再读取唯一活动角色授权。未认证 401、已认证未授权 403、身份基础设施故障 503。
 - 当前不包含批准、发布、公开产品页、生产身份或许可证法律判断。
-- 当前实现通过 lint、typecheck、102 个 Vitest 测试、PGlite/PostgreSQL WASM 迁移约束验证和 production build；证据见 `outputs/verification/M2-1/` 至 `M2-2b2b2a/`。
+- 当前实现通过 lint、typecheck、103 个 Vitest 测试、PGlite/PostgreSQL WASM 迁移约束验证、Next production build 和 Cloudflare OpenNext build；本地 Workers 预览也已验证。证据见 `outputs/verification/M2-1/` 至 `M2-2b2b2a-cloudflare/`。
 
 ## System context
 
@@ -48,7 +48,7 @@ VibeSource 核心系统负责产品资料、审核状态、公开页面、社区
 - Newsletter provider：待确认。
 - Analytics/observability：待确认。
 - Payment provider：MVP 后的商业验证需要，待确认。
-- Production hosting, database and storage：待确认。M2.1 的本地 SQLite 文件不是生产方案。
+- Production hosting：Cloudflare Workers/OpenNext 为已选验证目标但未远端验收。Database/storage：Hyperdrive + Neon PostgreSQL 为首个目标，业务迁移与其他存储仍待确认。M2.1 的本地 SQLite 文件不是生产方案。
 
 ## Target M2+ runtime and data flow
 
@@ -110,12 +110,14 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 | Product URLs | Demo、部署和源码跳转 | 不可信 URL；M2.2b1 不摄入正文 | 全地址公网校验、固定 IP、HTTPS、禁重定向；失败不伪造可用 | Partial — local real 200/301/reserved-address paths |
 | GitHub OAuth / Better Auth | 编辑账号身份与数据库 session | OAuth client secret、账号、session、加密 token | 配置缺失 503；未登录 401；无角色 403；不降级 | Partial — adapter/tests/browser UI only, no live OAuth |
 | Neon PostgreSQL | 首个生产数据库验证目标 | session、账号、角色；未来业务数据 | pooled connection；故障 503；迁移/备份/恢复需验证 | No — no project or database connected |
+| Cloudflare Workers/OpenNext | Next.js web 与 API runtime | 部署产物、秘密、日志 | `nodejs_compat`；构建/预览失败可见；发布和回滚人工控制 | Partial — local build/preview only |
+| Cloudflare Hyperdrive | Workers 到标准 PostgreSQL 的连接与池化 | PostgreSQL origin credentials、动态连接串 | 绑定缺失时身份失败关闭；连接不跨请求复用 | No — binding not created |
 | Local SQLite | M2.1 候选提交与拒绝审计 | 开发/QA 候选数据 | 只允许绝对路径和单实例；配置缺失时失效关闭 | Partial — local automated, browser and restart checks only |
 | Production database/storage | 公开业务真相和证据 | 用户与产品数据 | 备份、迁移、恢复和数据保留策略必须验证 | No |
 | Newsletter provider | 订阅与投递 | 邮箱、同意和退订状态 | 未确认或同步冲突时不发送 | No |
 | Analytics/observability | 真实流量和故障诊断 | 事件、可能的设备信息 | 最小采集并公开隐私规则；失败不阻塞核心浏览 | No |
 | Payment provider | 后续付费服务 | 订单、支付状态，不保存原始卡数据 | 金额先确认、幂等、未知状态人工处理 | No |
-| Hosting/CDN | 提供网站和后台服务 | 部署产物、配置和日志 | 本地 Node build/server 已验证；生产环境仍需验证回滚、健康检查和秘密隔离 | No — production not selected |
+| Hosting/CDN | Cloudflare Workers 提供网站和后台服务 | 部署产物、配置和日志 | OpenNext build/local preview 已验证；远端仍需验证回滚、健康检查和秘密隔离 | Partial — local Workers preview only |
 
 ## Security and privacy
 
@@ -151,11 +153,12 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 - 邮件、分析和身份数据引入隐私及合规责任。
 - 赞助业务若边界不清会破坏自然榜单可信度。
 - `node:sqlite` 为同步 API 且当前是 Stability 1.2 / Release Candidate；多实例、无持久磁盘的托管或高并发均不在 M2.1 承诺内。
+- Cloudflare Workers 中 `node:sqlite` 仅为不可工作的兼容桩；启用生产提交前必须迁走全部 SQLite 业务状态。
 
 ## Accepted runtime foundation
 
 - Web：Next.js 16.2.12 App Router、React 19.2.8、TypeScript 5.9。
-- Runtime：Node.js 24、npm 11、锁定依赖；本地 Node server 与生产构建已验证。
+- Runtime：Node.js 24、npm 11、锁定依赖；本地 Node server、Next production build、Cloudflare OpenNext build 与本地 Workers preview 已验证。
 - Quality：ESLint 9、Vitest 4、Next type generation、TypeScript typecheck。
 - M1 边界：不引入数据库、登录、队列或供应商 SDK，避免在业务真相源确定前制造临时状态。
 
@@ -172,5 +175,5 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 - 生产数据库、队列/定时任务、缓存和对象存储；M2.1 的本地迁移不关闭这些决策。
 - 生产 GitHub 身份、刷新频率、条件请求、后台任务和数据保留策略。
 - GitHub OAuth App/预览环境实测、账号生命周期、角色操作工具与普通用户反作弊方案。
-- 托管区域、CDN、监控、备份和恢复目标。
+- Cloudflare Worker 区域行为、CPU/体积限制、Hyperdrive、监控、备份和恢复目标的真实环境验收。
 - Newsletter、分析与后续支付供应商及预算。

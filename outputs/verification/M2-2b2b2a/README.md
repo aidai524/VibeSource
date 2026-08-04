@@ -10,7 +10,7 @@ Date: 2026-08-04
 - Sensitive editor authorization forces session validation and then reads the single active application role grant.
 - Explicit status semantics: unauthenticated 401, authenticated without grant/permission 403, unavailable identity infrastructure 503.
 - PostgreSQL auth schema and reasoned role grant/revocation migration.
-- Vercel + Neon pooled PostgreSQL selected as the first production-like validation target; application code uses standard `pg`.
+- At this evidence date Vercel + Neon was selected as the first target. D-023 later superseded only the hosting choice with Cloudflare Workers/OpenNext + Hyperdrive; application code still uses standard `pg`.
 
 ## Automated verification
 
@@ -45,7 +45,7 @@ The local server was stopped and browser tabs were finalized after verification.
 
 - no GitHub OAuth application, callback, account or private-email path;
 - no live network PostgreSQL/Neon schema, session, connection pool or role grant; PGlite only verifies local SQL and constraints;
-- no Vercel preview or production deployment;
+- no remote Cloudflare preview or production deployment; the later local Workers evidence is in `M2-2b2b2a-cloudflare/`;
 - no session revocation, secret rotation, backup or restore rehearsal;
 - business submissions/evidence remain in local SQLite;
 - no approve, publish or public-product state.

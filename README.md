@@ -1,6 +1,6 @@
 # VibeSource
 
-> Status: M2 in progress · M2.2b2b2a GitHub OAuth/PostgreSQL adapter and local migration harness implemented but not live-verified · Architecture profile: standard
+> Status: M2 in progress · Cloudflare Workers/OpenNext build verified locally; GitHub OAuth/PostgreSQL remain not live-verified · Architecture profile: standard
 
 VibeSource 是一个专门发现和发布 AI 原生开源产品的平台。开发者可以获得首发与持续流量；用户可以直接体验产品、查看源码、判断 AI 的参与方式，并基于许可证与部署说明复用成果。
 
@@ -43,7 +43,7 @@ npm run build
 npm run start
 ```
 
-当前代码已通过 `npm run check`（102 项 Vitest 测试、PostgreSQL 迁移约束验证与 production build）。M2.1 至 M2.2b2b2a 的证据位于 `outputs/verification/`；真实 GitHub OAuth、托管 PostgreSQL 和 Vercel 环境仍未创建或验证。
+当前代码已通过 `npm run check`（103 项 Vitest 测试、PostgreSQL 迁移约束验证、Next production build 与 Cloudflare OpenNext build）。M2.1 至 M2.2b2b2a 的证据位于 `outputs/verification/`；真实 GitHub OAuth、Cloudflare Worker/Hyperdrive 和托管 PostgreSQL 环境仍未创建或验证。
 
 默认运行仍是有意保留的失败关闭状态：`VIBESOURCE_SUBMISSION_MODE` 未显式设为 `local` 时，页面和 API 都不会接收提交。GitHub 与 Demo 时点证据各自需要显式开启和有权限的人工点击；许可证策略只派生人工复核建议。当前没有批准、发布、公开产品、许可证法律判断或生产身份能力。
 
@@ -78,7 +78,16 @@ VIBESOURCE_DEMO_EVIDENCE_MODE=live
 
 M2.2b2b2a 已加入默认关闭的 Better Auth 1.6.25 + GitHub OAuth + PostgreSQL 数据库会话适配器。完整配置见 `.env.example`；核心 schema 和应用角色授权表位于 `migrations/`。`npm run verify:postgres-migrations` 会在内存 PGlite/PostgreSQL WASM 中重放迁移并验证关键约束。GitHub 登录只建立账号身份，只有 `vibesource_editor_role_grants` 中未撤销的人工授权才能产生编辑权限。
 
-当前优先验证目标是 Vercel Node.js 托管与 Neon pooled PostgreSQL，但业务提交仍由本地 SQLite 适配器保存，所以项目尚不能作为生产系统部署。创建外部账号、应用迁移和生产部署仍需单独确认与验收。
+当前优先验证目标是 Cloudflare Workers + OpenNext，以及通过 Hyperdrive 连接的 Neon PostgreSQL。Cloudflare 构建与本地 Workers 预览已经通过，但业务提交仍由本地 SQLite 适配器保存；Workers 中的 `node:sqlite` 不是可用生产存储，所以项目尚不能作为生产系统部署。创建外部账号、绑定真实资源、应用迁移和生产部署仍需单独确认与验收。
+
+Cloudflare 本地构建命令：
+
+```bash
+npm run build:cloudflare
+npm run preview:cloudflare
+```
+
+`npm run deploy:cloudflare` 会产生真实外部部署，只能在确认账号、资源、秘密和发布范围后人工执行。
 
 ## Project map
 
@@ -95,4 +104,4 @@ M2.2b2b2a 已加入默认关闭的 Better Auth 1.6.25 + GitHub OAuth + PostgreSQ
 
 ## Current milestone
 
-M2 — GitHub OAuth/PostgreSQL 身份适配器已实现并失败关闭；迁移 SQL 已在本地 PostgreSQL WASM 中验证可重复执行及关键约束。下一步是人工创建 GitHub OAuth、Neon 和 Vercel 资源，在预览环境复核迁移并验证真实登录、会话撤销和角色授权，然后把业务数据从 SQLite 迁往 PostgreSQL。在此完成前仍不设计批准或发布路径。
+M2 — GitHub OAuth/PostgreSQL 身份适配器已实现并失败关闭；Cloudflare OpenNext 构建与本地 Workers 预览已通过。下一步是人工创建 GitHub OAuth、Cloudflare Worker/Hyperdrive 和 Neon 资源，在预览环境复核迁移并验证真实登录、会话撤销和角色授权，然后把业务数据从 SQLite 迁往 PostgreSQL。在此完成前仍不设计批准或发布路径。

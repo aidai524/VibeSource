@@ -18,7 +18,7 @@ The server derives the actor and role from server configuration. Clients can pre
 
 ## Production target
 
-The selected validation target is Better Auth with GitHub OAuth, standard PostgreSQL, Vercel Node.js hosting and Neon pooled PostgreSQL. The application uses only a PostgreSQL connection string, so the database can move to another compatible provider. Hosting and database accounts have not been created or paid for.
+The selected validation target is Better Auth with GitHub OAuth, Cloudflare Workers through OpenNext, and standard PostgreSQL through a Cloudflare Hyperdrive binding, initially backed by Neon. The application still consumes a PostgreSQL connection string, so the database can move to another compatible provider. Hosting, Hyperdrive and database accounts have not been created or paid for.
 
 Production sessions must be opaque and server-side/database-backed, with:
 
