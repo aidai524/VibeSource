@@ -1,0 +1,50 @@
+{
+  "name": "vibesource",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=11 <12"
+  },
+  "packageManager": "npm@11.16.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "build:cloudflare": "opennextjs-cloudflare build",
+    "start": "next start",
+    "preview:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "auth:schema": "auth generate --config src/server/auth-schema.ts --output migrations/0001_better_auth.sql --yes",
+    "verify:license-policy-source": "node scripts/verify-license-policy-source.mjs",
+    "verify:postgres-migrations": "node scripts/verify-postgres-migrations.mjs",
+    "apply:postgres-migrations": "node scripts/apply-postgres-migrations.mjs",
+    "migrate:sqlite-to-postgres": "node scripts/migrate-sqlite-to-postgres.mjs",
+    "check": "npm run lint && npm run typecheck && npm test && npm run verify:postgres-migrations && npm run build && npm run build:cloudflare"
+  },
+  "dependencies": {
+    "better-auth": "^1.6.25",
+    "next": "16.2.12",
+    "pg": "^8.22.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.4.5",
+    "@opennextjs/cloudflare": "1.20.2",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.20.3",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "auth": "^1.6.25",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "16.2.12",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0",
+    "wrangler": "4.118.0"
+  }
+}

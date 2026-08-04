@@ -1,0 +1,188 @@
+import path from "node:path";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
+import { isEditorRole, type EditorRole } from "@/domain/editor-identity";
+
+export type SubmissionMode = "disabled" | "local" | "postgres";
+export type GitHubEvidenceMode = "disabled" | "live";
+export type DemoEvidenceMode = "disabled" | "live";
+export type EditorIdentityMode = "disabled" | "local-token" | "external-oidc";
+
+export type ProductionAuthConfiguration = {
+  readonly databaseUrl: string;
+  readonly baseUrl: string;
+  readonly secret: string;
+  readonly githubClientId: string;
+  readonly githubClientSecret: string;
+};
+
+export type RuntimeConfiguration = {
+  readonly mode: SubmissionMode;
+  readonly submissionAvailable: boolean;
+  readonly editorAvailable: boolean;
+  readonly editorIdentityMode: EditorIdentityMode;
+  readonly editorRole: EditorRole | null;
+  readonly githubEvidenceMode: GitHubEvidenceMode;
+  readonly githubEvidenceAvailable: boolean;
+  readonly demoEvidenceMode: DemoEvidenceMode;
+  readonly demoEvidenceAvailable: boolean;
+  readonly databasePath: string | null;
+  readonly productionDatabaseUrl: string | null;
+  readonly editorToken: string | null;
+  readonly editorId: string | null;
+  readonly productionAuth: ProductionAuthConfiguration | null;
+  readonly unavailableReason: string | null;
+};
+
+type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
+
+type CloudflareHyperdriveBinding = {
+  readonly connectionString?: unknown;
+};
+
+type CloudflareRuntimeEnvironment = {
+  readonly HYPERDRIVE?: CloudflareHyperdriveBinding;
+};
+
+export function withCloudflareDatabaseBinding(
+  environment: RuntimeEnvironment,
+  binding: CloudflareHyperdriveBinding | undefined,
+): RuntimeEnvironment {
+  if (environment.DATABASE_URL?.trim()) return environment;
+  if (typeof binding?.connectionString !== "string") return environment;
+  const connectionString = binding.connectionString.trim();
+  if (!connectionString) return environment;
+
+  return { ...environment, DATABASE_URL: connectionString };
+}
+
+function getDefaultRuntimeEnvironment(): RuntimeEnvironment {
+  try {
+    const cloudflareEnvironment = getCloudflareContext().env as unknown as
+      CloudflareRuntimeEnvironment;
+    return withCloudflareDatabaseBinding(
+      process.env,
+      cloudflareEnvironment.HYPERDRIVE,
+    );
+  } catch {
+    // Standard Next.js builds and Node.js tests do not have a Workers context.
+    return process.env;
+  }
+}
+
+function parseUrl(value: string | undefined, protocols: readonly string[]): string | null {
+  const candidate = value?.trim();
+  if (!candidate) return null;
+  try {
+    const parsed = new URL(candidate);
+    return protocols.includes(parsed.protocol) ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getRuntimeConfiguration(
+  environment: RuntimeEnvironment = getDefaultRuntimeEnvironment(),
+): RuntimeConfiguration {
+  const mode: SubmissionMode =
+    environment.VIBESOURCE_SUBMISSION_MODE === "local"
+      ? "local"
+      : environment.VIBESOURCE_SUBMISSION_MODE === "postgres"
+        ? "postgres"
+        : "disabled";
+  const candidatePath = environment.VIBESOURCE_DB_PATH?.trim() || null;
+  const databasePath = candidatePath && path.isAbsolute(candidatePath)
+    ? candidatePath
+    : null;
+  const editorToken = environment.VIBESOURCE_EDITOR_TOKEN?.trim() || null;
+  const editorId = environment.VIBESOURCE_EDITOR_ID?.trim() || null;
+  const editorIdentityMode: EditorIdentityMode =
+    environment.VIBESOURCE_EDITOR_IDENTITY_MODE === "local-token"
+      ? "local-token"
+      : environment.VIBESOURCE_EDITOR_IDENTITY_MODE === "external-oidc"
+        ? "external-oidc"
+        : "disabled";
+  const roleCandidate = environment.VIBESOURCE_EDITOR_ROLE?.trim() || null;
+  const editorRole = isEditorRole(roleCandidate) ? roleCandidate : null;
+  const productionDatabaseUrl = parseUrl(
+    environment.DATABASE_URL,
+    ["postgres:", "postgresql:"],
+  );
+  const productionAuthBaseUrl = parseUrl(
+    environment.BETTER_AUTH_URL,
+    environment.NODE_ENV === "production" ? ["https:"] : ["https:", "http:"],
+  );
+  const productionAuthSecret = environment.BETTER_AUTH_SECRET?.trim() || null;
+  const githubClientId = environment.GITHUB_CLIENT_ID?.trim() || null;
+  const githubClientSecret = environment.GITHUB_CLIENT_SECRET?.trim() || null;
+  const productionAuth =
+    productionDatabaseUrl &&
+    productionAuthBaseUrl &&
+    productionAuthSecret &&
+    productionAuthSecret.length >= 32 &&
+    githubClientId &&
+    githubClientSecret
+      ? {
+          databaseUrl: productionDatabaseUrl,
+          baseUrl: productionAuthBaseUrl,
+          secret: productionAuthSecret,
+          githubClientId,
+          githubClientSecret,
+        }
+      : null;
+  const githubEvidenceMode =
+    environment.VIBESOURCE_GITHUB_EVIDENCE_MODE === "live"
+      ? "live"
+      : "disabled";
+  const submissionAvailable =
+    (mode === "local" && databasePath !== null) ||
+    (mode === "postgres" && productionDatabaseUrl !== null);
+  const localEditorAvailable =
+    submissionAvailable &&
+    mode === "local" &&
+    editorIdentityMode === "local-token" &&
+    editorToken !== null &&
+    editorToken.length >= 16 &&
+    editorId !== null &&
+    editorRole !== null;
+  const externalEditorAvailable =
+    submissionAvailable &&
+    editorIdentityMode === "external-oidc" &&
+    productionAuth !== null;
+  const editorAvailable = localEditorAvailable || externalEditorAvailable;
+  const githubEvidenceAvailable =
+    editorAvailable && githubEvidenceMode === "live";
+  const demoEvidenceMode = environment.VIBESOURCE_DEMO_EVIDENCE_MODE === "live"
+    ? "live"
+    : "disabled";
+  const demoEvidenceAvailable = editorAvailable && demoEvidenceMode === "live";
+
+  let unavailableReason: string | null = null;
+  if (mode === "disabled") {
+    unavailableReason = "提交入口默认关闭，必须显式配置受控存储模式。";
+  } else if (mode === "local" && databasePath === null) {
+    unavailableReason =
+      "提交模式已开启，但 VIBESOURCE_DB_PATH 还没有配置为绝对路径。";
+  } else if (mode === "postgres" && productionDatabaseUrl === null) {
+    unavailableReason =
+      "PostgreSQL 提交模式已开启，但数据库连接尚未配置。";
+  }
+
+  return {
+    mode,
+    submissionAvailable,
+    editorAvailable,
+    editorIdentityMode,
+    editorRole,
+    githubEvidenceMode,
+    githubEvidenceAvailable,
+    demoEvidenceMode,
+    demoEvidenceAvailable,
+    databasePath,
+    productionDatabaseUrl,
+    editorToken,
+    editorId,
+    productionAuth,
+    unavailableReason,
+  };
+}

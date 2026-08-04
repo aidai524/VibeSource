@@ -1,0 +1,37 @@
+# dependencies
+/node_modules
+
+# Next.js
+/.next
+/.open-next
+/out
+
+# tests
+/coverage
+
+# local environment
+.env*
+!.env.example
+.dev.vars
+
+# local M2.1 persistence (never commit runtime data)
+/.data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
+
+# logs
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# editor and system
+.DS_Store
+*.pem
+*.tsbuildinfo
+
+# deployment providers
+.vercel
+.wrangler
