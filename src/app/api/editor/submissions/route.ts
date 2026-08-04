@@ -18,15 +18,19 @@ export async function GET(request: Request) {
 
   try {
     const repository = getSubmissionRepository(configuration);
-    const items = repository.listPending().map((submission) => {
-      const githubEvidence = repository.getGitHubEvidence(submission.id);
+    const pending = await repository.listPending();
+    const items = await Promise.all(pending.map(async (submission) => {
+      const [githubEvidence, demoEvidence] = await Promise.all([
+        repository.getGitHubEvidence(submission.id),
+        repository.getDemoEvidence(submission.id),
+      ]);
       return {
         ...submission,
         githubEvidence,
-        demoEvidence: repository.getDemoEvidence(submission.id),
+        demoEvidence,
         licensePolicy: evaluateLicensePolicy(submission.licenseName, githubEvidence),
       };
-    });
+    }));
     return Response.json(
       {
         items,

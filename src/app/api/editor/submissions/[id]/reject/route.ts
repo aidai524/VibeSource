@@ -37,7 +37,7 @@ export async function POST(request: Request, context: RejectRouteContext) {
       readonly expectedVersion?: unknown;
     };
     const { id } = await context.params;
-    const submission = getSubmissionRepository(configuration).rejectSubmission(
+    const submission = await getSubmissionRepository(configuration).rejectSubmission(
       id,
       {
         actor: access.actorId,

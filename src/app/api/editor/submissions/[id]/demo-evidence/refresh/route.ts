@@ -35,13 +35,13 @@ export async function POST(
   try {
     const { id } = await context.params;
     const repository = getSubmissionRepository(configuration);
-    const submission = repository.getSubmission(id);
+    const submission = await repository.getSubmission(id);
     if (submission === null) throw new SubmissionNotFoundError(id);
     if (submission.status !== "pending_review") {
       throw new SubmissionConflictError("state", "Only pending submissions can refresh evidence.");
     }
     const result = await new DemoEvidenceAdapter().observe(submission.experienceUrl);
-    const demoEvidence = repository.recordDemoEvidenceAttempt(submission.id, access.actorId, result);
+    const demoEvidence = await repository.recordDemoEvidenceAttempt(submission.id, access.actorId, result);
     const message = demoEvidence.state === "observed"
       ? "Demo 当前时点响应头证据已保存；这不会批准或发布产品。"
       : demoEvidence.state === "stale"

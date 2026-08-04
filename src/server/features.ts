@@ -3,7 +3,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 import { isEditorRole, type EditorRole } from "@/domain/editor-identity";
 
-export type SubmissionMode = "disabled" | "local";
+export type SubmissionMode = "disabled" | "local" | "postgres";
 export type GitHubEvidenceMode = "disabled" | "live";
 export type DemoEvidenceMode = "disabled" | "live";
 export type EditorIdentityMode = "disabled" | "local-token" | "external-oidc";
@@ -27,6 +27,7 @@ export type RuntimeConfiguration = {
   readonly demoEvidenceMode: DemoEvidenceMode;
   readonly demoEvidenceAvailable: boolean;
   readonly databasePath: string | null;
+  readonly productionDatabaseUrl: string | null;
   readonly editorToken: string | null;
   readonly editorId: string | null;
   readonly productionAuth: ProductionAuthConfiguration | null;
@@ -83,9 +84,12 @@ function parseUrl(value: string | undefined, protocols: readonly string[]): stri
 export function getRuntimeConfiguration(
   environment: RuntimeEnvironment = getDefaultRuntimeEnvironment(),
 ): RuntimeConfiguration {
-  const mode = environment.VIBESOURCE_SUBMISSION_MODE === "local"
-    ? "local"
-    : "disabled";
+  const mode: SubmissionMode =
+    environment.VIBESOURCE_SUBMISSION_MODE === "local"
+      ? "local"
+      : environment.VIBESOURCE_SUBMISSION_MODE === "postgres"
+        ? "postgres"
+        : "disabled";
   const candidatePath = environment.VIBESOURCE_DB_PATH?.trim() || null;
   const databasePath = candidatePath && path.isAbsolute(candidatePath)
     ? candidatePath
@@ -130,9 +134,12 @@ export function getRuntimeConfiguration(
     environment.VIBESOURCE_GITHUB_EVIDENCE_MODE === "live"
       ? "live"
       : "disabled";
-  const submissionAvailable = mode === "local" && databasePath !== null;
+  const submissionAvailable =
+    (mode === "local" && databasePath !== null) ||
+    (mode === "postgres" && productionDatabaseUrl !== null);
   const localEditorAvailable =
     submissionAvailable &&
+    mode === "local" &&
     editorIdentityMode === "local-token" &&
     editorToken !== null &&
     editorToken.length >= 16 &&
@@ -151,11 +158,14 @@ export function getRuntimeConfiguration(
   const demoEvidenceAvailable = editorAvailable && demoEvidenceMode === "live";
 
   let unavailableReason: string | null = null;
-  if (mode !== "local") {
-    unavailableReason = "提交入口默认关闭，仅在受控本地或 QA 环境开放。";
-  } else if (databasePath === null) {
+  if (mode === "disabled") {
+    unavailableReason = "提交入口默认关闭，必须显式配置受控存储模式。";
+  } else if (mode === "local" && databasePath === null) {
     unavailableReason =
       "提交模式已开启，但 VIBESOURCE_DB_PATH 还没有配置为绝对路径。";
+  } else if (mode === "postgres" && productionDatabaseUrl === null) {
+    unavailableReason =
+      "PostgreSQL 提交模式已开启，但数据库连接尚未配置。";
   }
 
   return {
@@ -169,6 +179,7 @@ export function getRuntimeConfiguration(
     demoEvidenceMode,
     demoEvidenceAvailable,
     databasePath,
+    productionDatabaseUrl,
     editorToken,
     editorId,
     productionAuth,

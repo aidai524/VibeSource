@@ -40,10 +40,15 @@ Apply migrations in numeric order with a migration-owner connection:
 
 1. `migrations/0001_better_auth.sql` — Better Auth 1.6.25 core tables and indexes.
 2. `migrations/0002_editor_role_grants.sql` — application-owned, reasoned role grants and revocations.
+3. `migrations/0003_submission_business_storage.sql` — candidates, review events and append-only GitHub/Demo evidence.
 
 `npm run verify:postgres-migrations` applies both committed migrations twice to an in-memory PGlite PostgreSQL 17 WASM engine. It checks the expected tables and indexes, database-enforced role/reason/revocation constraints, unique active user/actor grants, re-grant after complete revocation and role-history retention. This is a deterministic SQL compatibility test, not a substitute for a networked PostgreSQL service, pooling or operations rehearsal.
 
 `npm run auth:schema` asks Better Auth's pinned CLI to generate its current schema. It requires a reachable disposable PostgreSQL database because the CLI introspects existing tables. The command was attempted locally, but no PostgreSQL service or Docker daemon was available; therefore the committed Better Auth SQL still requires comparison against CLI output before production use.
+
+Set `VIBESOURCE_SUBMISSION_MODE=postgres` only after all three migrations are applied. The runtime then uses the PostgreSQL business repository; missing database configuration fails closed. `local-token` is intentionally unavailable in postgres mode, so production editing still requires the external identity adapter.
+
+Legacy transfer is a separate human-controlled operation. `npm run migrate:sqlite-to-postgres -- --source=/absolute/file.sqlite` reads schema-v3 SQLite in read-only mode and prints per-table counts. Adding `--apply` requires a migration-owner `DATABASE_URL`, refuses non-empty PostgreSQL business tables, writes all four tables in one transaction and commits only when target/source counts match. It never applies schema changes automatically.
 
 Use separate database roles:
 
@@ -60,10 +65,10 @@ After a user completes GitHub sign-in, an operator must resolve the Better Auth 
 ## Remaining production blockers
 
 - create and review the Cloudflare Worker, Hyperdrive and Neon resources without committing IDs or credentials;
-- compare Better Auth's generated schema, then apply both migrations on disposable networked and preview PostgreSQL;
+- compare Better Auth's generated schema, then apply all three migrations on disposable networked and preview PostgreSQL;
 - create GitHub OAuth app and verify callback, private-email and failure paths;
 - verify session creation, fixed expiry, logout/revocation and role changes in preview;
-- migrate candidate, evidence and audit state from local SQLite to PostgreSQL;
+- dry-run, review and explicitly apply candidate/evidence/audit import from local SQLite to empty PostgreSQL business tables;
 - verify backups, restore, migration rollback, monitoring, rate limits and secret rotation;
 - verify Worker size, CPU/runtime limits, logs, rollback and custom-domain behavior;
 - only then design approve/publish state transitions.

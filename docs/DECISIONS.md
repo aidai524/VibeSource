@@ -21,6 +21,7 @@
 | D-021 | 2026-08-04 | 首个生产验证目标采用 Vercel Node.js、Neon pooled PostgreSQL、Better Auth 1.6.25 与 GitHub OAuth，同时让业务层只依赖标准 PostgreSQL | 当前栈是 Next.js，开发者天然拥有 GitHub 身份；数据库会话和应用自有角色能把认证与授权分开；标准连接串降低数据库迁移成本 | external-oidc 只有完整 HTTPS/secret/OAuth/Postgres 配置才启用；会话固定 8 小时且敏感操作查库；GitHub 不自动授予角色；外部资源和业务数据迁移仍未执行 | Superseded by D-023 for hosting only |
 | D-022 | 2026-08-04 | PGlite 仅作为开发期 PostgreSQL 迁移测试引擎，并把迁移验证纳入 `npm run check` | 在不创建外部账号或伪装生产验收的前提下，可以真实执行仓库 SQL 并尽早发现幂等、索引和约束问题 | PGlite 不进入运行时依赖或生产数据路径；通过只证明单进程 WASM PostgreSQL 的 SQL/约束兼容，Neon pooling、CLI schema diff、session、备份和恢复仍需真实环境验证 | Accepted |
 | D-023 | 2026-08-04 | 以 Cloudflare Workers + OpenNext 取代 D-021 的 Vercel 托管目标；标准 PostgreSQL 通过 Hyperdrive 连接，首个数据库目标仍为 Neon | 用户明确选择 Cloudflare；OpenNext 当前支持 Next.js 16，Workers/Hyperdrive 支持 `pg`，并能保持数据库供应商中立 | `nodejs_compat` + OpenNext；`pg-cloudflare` workerd export 显式打包；连接 `maxUses: 1`；Hyperdrive ID/秘密不入库；本地 SQLite 不得作为 Workers 生产存储；远端资源和部署仍需人工确认 | Accepted, locally build-verified; supersedes D-021 hosting choice |
+| D-024 | 2026-08-04 | 增加标准 PostgreSQL 业务仓储并保留 SQLite 仅作本地 QA；旧数据迁移默认 dry-run，显式 `--apply` 只允许空目标和单事务计数一致 | Cloudflare Workers 无可用持久 `node:sqlite`，但不能在未验证目标或覆盖已有数据的情况下自动迁移；统一异步仓储接口让路由保持相同领域语义 | `postgres` 模式必须显式启用；local-token 不得用于 postgres 编辑；待审部分唯一索引、行锁/版本检查、FK 索引与追加触发器；不实现 approve/publish | Accepted, locally verified |
 
 ## Open decisions
 

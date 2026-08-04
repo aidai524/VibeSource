@@ -37,6 +37,32 @@ describe("runtime feature configuration", () => {
       demoEvidenceMode: "disabled",
       demoEvidenceAvailable: false,
       databasePath: null,
+      productionDatabaseUrl: null,
+    });
+  });
+
+  it("enables PostgreSQL submissions only with an explicit database connection", () => {
+    expect(getRuntimeConfiguration({
+      VIBESOURCE_SUBMISSION_MODE: "postgres",
+    })).toMatchObject({
+      mode: "postgres",
+      submissionAvailable: false,
+      productionDatabaseUrl: null,
+    });
+
+    expect(getRuntimeConfiguration({
+      VIBESOURCE_SUBMISSION_MODE: "postgres",
+      DATABASE_URL: "postgresql://app:secret@db.example.com/vibesource",
+      VIBESOURCE_EDITOR_IDENTITY_MODE: "local-token",
+      VIBESOURCE_EDITOR_TOKEN: "a-long-local-token",
+      VIBESOURCE_EDITOR_ID: "qa-editor",
+      VIBESOURCE_EDITOR_ROLE: "admin",
+    })).toMatchObject({
+      mode: "postgres",
+      submissionAvailable: true,
+      editorAvailable: false,
+      databasePath: null,
+      productionDatabaseUrl: "postgresql://app:secret@db.example.com/vibesource",
     });
   });
 
@@ -70,7 +96,7 @@ describe("runtime feature configuration", () => {
     ).toBe(true);
   });
 
-  it("keeps the reserved external OIDC mode unavailable until an adapter exists", () => {
+  it("keeps external OIDC unavailable until its complete configuration exists", () => {
     expect(getRuntimeConfiguration({
       VIBESOURCE_SUBMISSION_MODE: "local",
       VIBESOURCE_DB_PATH: "/tmp/vibesource-test.sqlite",

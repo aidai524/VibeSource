@@ -68,9 +68,15 @@
 ## M2.2b2b2a 验证边界
 
 - 已实现范围：Better Auth 1.6.25 + GitHub OAuth handler、PostgreSQL 数据库 session、固定八小时无滑动刷新、OAuth token 加密、state 入库、账号关联关闭、数据库限流和应用自有角色授权表。
-- 当前证据：`npm run check` 通过，包括 12 个文件中的 103 个 Vitest 测试、PGlite/PostgreSQL 17 WASM 迁移验证、Next production build 和 Cloudflare OpenNext build；自动化覆盖配置失效关闭、Hyperdrive URL 注入优先级、外部 principal、未分配角色 403、权限 403、基础设施异常 503、auth route 默认 503，以及迁移幂等、表/索引和角色授权数据库约束。
+- 当前证据：`npm run check` 通过，包括 14 个文件中的 109 个 Vitest 测试、PGlite/PostgreSQL 17 WASM 迁移验证、Next production build 和 Cloudflare OpenNext build；自动化覆盖配置失效关闭、Hyperdrive URL 注入优先级、异步 PostgreSQL 业务仓储、SQLite 原子导入、外部 principal、401/403/503，以及迁移幂等、表/索引和数据库约束。
 - 隔离浏览器中，本地 token 模式仍载入 `editor · 0 条`；外部模式显示 GitHub 登录和“登录不等于授权”说明，未登录明确返回 401；两种模式 1280px 无横向溢出。
 - Cloudflare 本地预览：首页和健康接口返回 200；未配置 auth/session 与提交接口返回明确 503。未验证真实 GitHub callback/private-email、Hyperdrive/Neon 上的 migration/session/revocation、Cloudflare secrets/远端 runtime、备份恢复和业务数据迁移。PGlite 和本地 Wrangler 都不能替代真实预览环境验收。
+
+## M2.2b2b2c 验证边界
+
+- 已实现范围：标准 PostgreSQL 候选/审核/证据 schema 与异步仓储；`postgres` 模式显式开启；幂等提交、待审仓库唯一性、短事务拒绝、stale 证据、追加保护及 SQLite schema-v3 导入。
+- 当前证据：PGlite PostgreSQL 17.5 上三份迁移可重复执行；10 张表和 12 个必要索引存在；仓储与迁移导入测试通过。导入默认 dry-run，只向空目标单事务写入并核对四表计数。
+- 未验证：真实 Hyperdrive/Neon 驱动行为、并发负载、连接中断恢复、生产数据导入、备份/恢复和回滚。因此本切片不能标记为生产迁移已完成。
 
 ## Release blockers
 

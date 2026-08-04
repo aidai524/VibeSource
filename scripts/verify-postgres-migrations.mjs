@@ -9,6 +9,7 @@ const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const migrationPaths = [
   join(projectRoot, "migrations/0001_better_auth.sql"),
   join(projectRoot, "migrations/0002_editor_role_grants.sql"),
+  join(projectRoot, "migrations/0003_submission_business_storage.sql"),
 ];
 
 async function expectDatabaseRejection(action, messagePattern) {
@@ -53,7 +54,11 @@ try {
     "session",
     "user",
     "verification",
+    "vibesource_demo_evidence_attempts",
     "vibesource_editor_role_grants",
+    "vibesource_github_evidence_attempts",
+    "vibesource_review_events",
+    "vibesource_submissions",
   ]);
 
   const indexResult = await database.query(
@@ -67,11 +72,16 @@ try {
           'vibesource_editor_role_grants_active_user_idx',
           'vibesource_editor_role_grants_auth_user_id_idx',
           'vibesource_editor_role_grants_active_actor_idx',
-          'vibesource_editor_role_grants_granted_at_idx'
+          'vibesource_editor_role_grants_granted_at_idx',
+          'vibesource_submissions_pending_repository_idx',
+          'vibesource_submissions_pending_created_idx',
+          'vibesource_review_events_submission_created_idx',
+          'vibesource_github_evidence_submission_observed_idx',
+          'vibesource_demo_evidence_submission_observed_idx'
         )
       order by indexname`,
   );
-  assert.equal(indexResult.rows.length, 7);
+  assert.equal(indexResult.rows.length, 12);
 
   await database.query(
     `insert into "user"

@@ -1,9 +1,12 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
+import { Pool } from "pg";
 
 import { createDatabase, type Database } from "@/server/database";
 import type { RuntimeConfiguration } from "@/server/features";
+import { PostgresSubmissionRepository } from "@/server/postgres-submission-repository";
 import { SubmissionRepository } from "@/server/submission-repository";
+import type { SubmissionStoreRepository } from "@/server/submission-store";
 
 type SubmissionStore = {
   readonly database: Database;
@@ -12,6 +15,10 @@ type SubmissionStore = {
 
 type GlobalStoreRegistry = typeof globalThis & {
   __vibeSourceSubmissionStores?: Map<string, SubmissionStore>;
+  __vibeSourcePostgresSubmissionStores?: Map<string, {
+    readonly pool: Pool;
+    readonly repository: PostgresSubmissionRepository;
+  }>;
 };
 
 function storeRegistry(): Map<string, SubmissionStore> {
@@ -21,15 +28,41 @@ function storeRegistry(): Map<string, SubmissionStore> {
 }
 
 /**
- * Opens one lazy SQLite connection per configured absolute path and reuses it
- * across route-handler reloads. Calling this function never enables a feature:
- * the caller must pass a configuration that already passed the fail-closed gate.
+ * Selects the explicitly configured local or PostgreSQL repository and reuses
+ * its pool/connection across route reloads. Calling this function never enables
+ * a feature: configuration must already have passed the fail-closed gate.
  */
 export function getSubmissionRepository(
   configuration: RuntimeConfiguration,
-): SubmissionRepository {
-  if (!configuration.submissionAvailable || !configuration.databasePath) {
+): SubmissionStoreRepository {
+  if (!configuration.submissionAvailable) {
     throw new Error("Submission storage is not available.");
+  }
+
+  if (configuration.mode === "postgres") {
+    const databaseUrl = configuration.productionDatabaseUrl;
+    if (!databaseUrl) throw new Error("PostgreSQL submission storage is not configured.");
+    const shared = globalThis as GlobalStoreRegistry;
+    shared.__vibeSourcePostgresSubmissionStores ??= new Map();
+    const existing = shared.__vibeSourcePostgresSubmissionStores.get(databaseUrl);
+    if (existing) return existing.repository;
+
+    const pool = new Pool({
+      connectionString: databaseUrl,
+      max: 5,
+      maxUses: 1,
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 5_000,
+      allowExitOnIdle: true,
+      application_name: "vibesource-business",
+    });
+    const repository = new PostgresSubmissionRepository(pool);
+    shared.__vibeSourcePostgresSubmissionStores.set(databaseUrl, { pool, repository });
+    return repository;
+  }
+
+  if (!configuration.databasePath) {
+    throw new Error("Local submission storage is not configured.");
   }
 
   const databasePath = configuration.databasePath;

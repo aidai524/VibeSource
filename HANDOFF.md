@@ -39,16 +39,18 @@ Last updated: 2026-08-04
 - M2.2b2b2a 已实现默认关闭的 Better Auth 1.6.25 + GitHub OAuth + PostgreSQL session 适配器；完整 HTTPS/secret/OAuth/database 配置才启用真实 auth handler。
 - 敏感编辑 API 强制数据库 session 查询，再读取应用自有的唯一活动角色 grant；未认证 401、已认证未授权 403、基础设施故障 503，GitHub identity 不自动授予角色。
 - PostgreSQL 核心 auth schema 与可审计角色授权迁移已提交；D-023 将首个托管验证目标改为 Cloudflare Workers/OpenNext + Hyperdrive + Neon，但没有创建外部资源，也没有迁移本地业务数据。
-- PGlite 仅作为开发测试依赖；两份迁移已在 PostgreSQL 17.5 WASM 中重复应用并验证 6 张表、7 个索引、角色/理由/撤销约束、活动 user/actor 唯一性、重新授权和历史保留。
+- PGlite 仅作为开发测试依赖；三份迁移已在 PostgreSQL 17.5 WASM 中重复应用并验证 10 张表、12 个必要索引，以及身份授权和业务存储约束。
 - Cloudflare OpenNext 适配已实现：`nodejs_compat`、Workers-safe `pg-cloudflare` 打包、可选 Hyperdrive 连接串注入和 `maxUses: 1`；本地 Worker 首页/健康接口 200，未配置 auth/提交接口保持 503。
-- 当前 `npm run check` 通过：12 个文件、103 个 Vitest 测试、PostgreSQL 迁移验证、lint、typecheck、Next production build 和 Cloudflare OpenNext build；本地 token 与外部登录空状态浏览器回归通过。
+- M2.2b2b2c 已实现异步 PostgreSQL 业务仓储：候选、审核事件和 GitHub/Demo 证据保持原领域语义；待审部分唯一索引、短事务行锁、版本检查和追加触发器已在 PGlite 验证。
+- SQLite schema-v3 导入工具默认只读 dry-run；只有显式 `--apply`、目标业务表全空且单事务前后计数一致才提交。本地 token 在 postgres 模式中不可用。
+- 当前 `npm run check` 通过：14 个文件、109 个 Vitest 测试、PostgreSQL 迁移验证、lint、typecheck、Next production build 和 Cloudflare OpenNext build；本地 token 与外部登录空状态浏览器回归通过。
 
 ## In progress
 
 - 保持 M2.1 的本地证据包可复现，不把它升级解释为生产能力。
 - 设计生产许可证人工复核流程；本地机器分流已完成，但公开产品变更处理、生产刷新和保留策略仍待定。
 - 按 D-023 创建并验证 GitHub OAuth、Cloudflare Worker/Hyperdrive 与 Neon preview database；应用/复核迁移、session/revocation 和角色变化。本地 token 不能升级解释为生产身份。
-- 为 M2 选择生产数据库、迁移和托管方案；本地 `node:sqlite` 不关闭 D-015。
+- 在真实 Hyperdrive/Neon 上验证 PostgreSQL 业务仓储、迁移、导入、备份与恢复；本地 PGlite 不关闭 D-015。
 - 确认 Newsletter、分析和后续支付方案。
 - 确认开放源码资格、AI 参与分类、榜单算法与反作弊政策。
 - 确认首发语言、目标市场和对外品牌名。
@@ -62,10 +64,13 @@ Last updated: 2026-08-04
 - Local review APIs: `src/app/api/editor/submissions/`
 - Domain and validation: `src/domain/submission.ts`
 - Local persistence and migration: `src/server/database.ts`, `src/server/submission-repository.ts`
+- PostgreSQL business repository: `src/server/postgres-submission-repository.ts`, `migrations/0003_submission_business_storage.sql`
+- Controlled SQLite import: `scripts/migrate-sqlite-to-postgres.mjs`
 - Health endpoint: `src/app/api/health/route.ts`
 - Development: `npm run dev`
 - Tests: `npm test`
 - PostgreSQL migration verification: `npm run verify:postgres-migrations`
+- SQLite import dry-run: `npm run migrate:sqlite-to-postgres -- --source=/absolute/file.sqlite`
 - Cloudflare build: `npm run build:cloudflare`
 - Cloudflare local preview: `npm run preview:cloudflare`
 - Cloudflare deploy (external write, explicit confirmation required): `npm run deploy:cloudflare`
@@ -131,6 +136,9 @@ Last updated: 2026-08-04
 | M2.2b2b2a Cloudflare OpenNext build | Complete | OpenNext 1.20.2 generated `.open-next/worker.js` for Next.js 16.2.12 with Workers `nodejs_compat` | 2026-08-04 |
 | M2.2b2b2a Cloudflare local preview | Complete | Homepage and health returned 200; unconfigured auth and submission returned explicit 503; preview stopped after verification | 2026-08-04 |
 | M2.2b2b2a Cloudflare evidence package | Complete | `outputs/verification/M2-2b2b2a-cloudflare/README.md` records build, local runtime outcomes and unverified remote boundaries | 2026-08-04 |
+| M2.2b2b2c PostgreSQL business repository | Complete | PGlite tests passed for idempotency, pending uniqueness, versioned rejection, stale evidence and append-only database triggers | 2026-08-04 |
+| M2.2b2b2c controlled SQLite transfer | Complete | Read-only schema-v3 snapshot, empty-target enforcement, one-transaction import, count parity and repeat-import rejection passed | 2026-08-04 |
+| M2.2b2b2c evidence package | Complete | `outputs/verification/M2-2b2b2c-postgres/README.md` records implementation, checks and live-database boundaries | 2026-08-04 |
 
 ## Known risks and unverified items
 
@@ -142,9 +150,10 @@ Last updated: 2026-08-04
 - Demo 只验证单个时点的响应头，不证明持续可用、内容安全或部署成功；许可证法律/资格判断、真实 GitHub OAuth/Hyperdrive/PostgreSQL/远端 Cloudflare、邮件、支付、分析和生产部署均未验证。
 - 当前 local build 和浏览器成功不证明生产托管、签名域名、监控、备份与回滚能力。
 - PGlite 只证明单进程 WASM PostgreSQL 上的 SQL 执行和约束；不证明 Better Auth CLI schema 一致性、网络 PostgreSQL、并发、Neon pooling、session 或运维能力。
+- PostgreSQL 业务仓储和 SQLite 导入只在 PGlite/临时 fixture 验证；真实导入前必须备份源库、复核 dry-run 计数并演练目标恢复。
 - 新增依赖已锁定并通过 build/test，但当前安全公告查询未执行；对外发送依赖清单前需明确授权，生产上线前必须补做依赖审计。
 - M2.1 只证明单实例本地候选提交与人工拒绝路径；不证明批准、发布、公开产品、榜单或流量闭环。
 
 ## Next smallest verifiable milestone
 
-由人工创建 GitHub OAuth App、Cloudflare Worker/Hyperdrive 和 Neon preview database；在预览环境复核并应用迁移，验证 callback、private email、session expiry/revocation、角色 grant/revoke、secret rotation 和故障路径。随后把候选/证据/审计存储从 SQLite 迁到 PostgreSQL。在这些完成前保持 approve/publish 不存在。
+由人工创建 GitHub OAuth App、Cloudflare Worker/Hyperdrive 和 Neon preview database；在预览环境复核并应用三份迁移，验证 callback、private email、session expiry/revocation、角色 grant/revoke 和 PostgreSQL 业务读写。对真实 SQLite 数据先备份与 dry-run，人工复核计数后再显式 `--apply`，并验证恢复。在这些完成前保持 approve/publish 不存在。

@@ -43,7 +43,7 @@ export async function POST(request: Request, context: RefreshRouteContext) {
   try {
     const { id } = await context.params;
     const repository = getSubmissionRepository(configuration);
-    const submission = repository.getSubmission(id);
+    const submission = await repository.getSubmission(id);
     if (submission === null) {
       throw new SubmissionNotFoundError(id);
     }
@@ -57,7 +57,7 @@ export async function POST(request: Request, context: RefreshRouteContext) {
     const result = await new GitHubEvidenceAdapter().observe(
       submission.repositoryUrl,
     );
-    const githubEvidence = repository.recordGitHubEvidenceAttempt(
+    const githubEvidence = await repository.recordGitHubEvidenceAttempt(
       submission.id,
       access.actorId,
       result,

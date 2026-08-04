@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: M1 remains verified. M2.1 through M2.2b2b2a are implemented; current checks cover 103 tests, Next/OpenNext builds, local Workers preview, real evidence responses, local persistence, external-auth fail-closed behavior, role authorization and local PostgreSQL migration constraints. GitHub OAuth/Hyperdrive/network PostgreSQL/remote Cloudflare remain live-unverified.
+> Status: M1 remains verified. M2.1 through M2.2b2b2c are implemented; current checks cover 109 tests, Next/OpenNext builds, local Workers preview, real evidence responses, SQLite/PostgreSQL repositories, external-auth fail-closed behavior, role authorization and local PostgreSQL migration constraints. GitHub OAuth/Hyperdrive/network PostgreSQL/remote Cloudflare remain live-unverified.
 
 ## Implemented M1 foundation
 
@@ -13,7 +13,7 @@
 
 ## 已实现的 M2 本地切片
 
-- `VIBESOURCE_SUBMISSION_MODE` 默认为 `disabled`。只有显式启用 `local` 并配置绝对 `VIBESOURCE_DB_PATH` 时，候选 UI 和 API 才可用。
+- `VIBESOURCE_SUBMISSION_MODE` 默认为 `disabled`。本地 QA 必须显式启用 `local` 并配置绝对 `VIBESOURCE_DB_PATH`；生产形态必须显式启用 `postgres` 并提供有效数据库连接，候选 UI 和 API 才可用。
 - 服务端校验 8 个字段：产品名、摘要、GitHub 仓库 URL、体验 URL、AI 参与说明、技术栈、许可证名称和复用说明。URL 形状校验不是外部核验。
 - 有效候选记录与 `submitted` 审计事件以 `pending_review` 状态原子提交；幂等约束和“同仓库只有一条活跃待审记录”约束防止静默重复。
 - 文件持久化使用 Node 24 内置同步 `node:sqlite`、显式 schema 迁移和调用方提供的绝对路径。该 API 是 Stability 1.2 / Release Candidate，因此当前仅限本地、单实例、非生产使用。
@@ -23,8 +23,9 @@
 - 许可证策略不新增可变状态：服务端从提交声明、当前 GitHub 成功快照和版本化 SPDX 3.28.0 OSI-approved 本地快照确定性派生三态建议。GitHub error/stale 不能通过；策略版本和来源随结果返回。
 - 本地审核使用服务端配置的 token、actor 与角色。`editor`、`license_reviewer`、`admin` 的最小权限由应用确定，每个编辑 API 在服务端校验具体权限；无权操作不只是在 UI 隐藏，而是返回 403。唯一状态转换仍是 `pending_review -> rejected`。
 - 外部身份模式使用 Better Auth + GitHub OAuth + PostgreSQL 数据库会话。完整配置才暴露真实 auth handler；敏感编辑 API 每次查库验证 session，再读取唯一活动角色授权。未认证 401、已认证未授权 403、身份基础设施故障 503。
+- `VIBESOURCE_SUBMISSION_MODE=postgres` 选择异步标准 PostgreSQL 业务仓储；数据库 URL 可来自显式秘密或 Hyperdrive binding。本地 token 只允许 SQLite QA，不能在 postgres 模式中产生编辑权限。
 - 当前不包含批准、发布、公开产品页、生产身份或许可证法律判断。
-- 当前实现通过 lint、typecheck、103 个 Vitest 测试、PGlite/PostgreSQL WASM 迁移约束验证、Next production build 和 Cloudflare OpenNext build；本地 Workers 预览也已验证。证据见 `outputs/verification/M2-1/` 至 `M2-2b2b2a-cloudflare/`。
+- 当前实现通过 lint、typecheck、109 个 Vitest 测试、PGlite/PostgreSQL WASM 迁移约束验证、Next production build 和 Cloudflare OpenNext build；本地 Workers 预览也已验证。证据见 `outputs/verification/M2-1/` 至 `M2-2b2b2c-postgres/`。
 
 ## System context
 
@@ -95,6 +96,7 @@ M1 不保存业务状态。M2.1 保存候选与审核事件，M2.2a 追加保存
 | M2.2b2b1 编辑授权 | 应用角色与权限映射 | 当前由服务端环境配置派生；未来由生产数据库持有 | 不保存本地会话；API 按操作授权 | external-oidc 无适配器即不可用；客户端不能选择 actor/role |
 | M2.2b2b2a 外部身份 | GitHub identity + Better Auth session + application role grant | OAuth callback、数据库 session、活动 grant | `EditorPrincipal` 或明确 401/403/503 | fixed 8h session；无 cookie cache；GitHub claim 不授予角色 |
 | PostgreSQL 迁移测试 | 仓库内 SQL + PGlite PostgreSQL WASM | 仅测试进程内临时数据库 | `npm run verify:postgres-migrations`；不保存数据 | 验证 SQL/约束，不证明网络、并发、连接池、备份或恢复 |
+| M2.2b2b2c 生产业务状态 | 标准 PostgreSQL | Cloudflare/Hyperdrive 运行时读取 | 三份显式迁移；待审部分索引；审核/证据追加保护 | SQLite 导入只允许空目标、单事务、前后计数一致；真实恢复仍待演练 |
 | AI 参与、技术栈和复用说明 | 开发者声明 + 编辑审核记录 | 公开产品版本 | 版本化保存 | 显示自述或核验状态 |
 | 点赞、评论和举报 | VibeSource 业务数据库 | 聚合计数 | 必须持久化 | 幂等、限频、软删除和申诉待设计 |
 | 每日榜单 | 公式版本 + 输入窗口的派生结果 | 公共缓存 | 保存每日快照 | 可按同版本重算；赞助金额不得进入自然榜 |

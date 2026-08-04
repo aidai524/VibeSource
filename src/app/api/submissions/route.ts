@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     const input = JSON.parse(rawBody) as SubmissionInput;
     const idempotencyKey = request.headers.get("idempotency-key");
     const repository = getSubmissionRepository(configuration);
-    const submission = repository.createSubmission(input, idempotencyKey ?? "");
+    const submission = await repository.createSubmission(input, idempotencyKey ?? "");
 
     return Response.json(publicSubmission(submission), {
       status: 201,
